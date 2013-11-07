@@ -13,10 +13,10 @@ Example functions:
 The switchcube will be fully Open Source and hackable. The electronics are stealth inside the wooden cube, but can be easily accessed.
 
 Hardware in the cube:
--Atmel AtMega 644, Arduino compatible. Should also fit on a 328/32U2, Arduino UNO, etc.
--Nordic Semiconductors NRF24L01+
--Analog Devices ADXL345 accelerometer (less accurate, without yaw control)
--InvenSense MPU6050 6-DOF gyroscope/accelerometer (more accurate, with yaw control, but also higher power consumption when gyro active)
--World Semi WS2812b RGB-LED for visual feedback and glow-in-the-dark feature.
--Maxim MAX1555 LiPo/LiIo Charger, 
--1s2p 18650 LiCoO2 cells 
+- Atmel AtMega 644, Arduino compatible. Should also fit on a 328/32U2, Arduino UNO, etc.
+- Nordic Semiconductors NRF24L01+
+- Analog Devices ADXL345 accelerometer (less accurate, without yaw control)
+- InvenSense MPU6050 6-DOF gyroscope/accelerometer (more accurate, with yaw control, but also higher power consumption when gyro active)
+- World Semi WS2812b RGB-LED for visual feedback and glow-in-the-dark feature.
+- Maxim MAX1555 LiPo/LiIo Charger, 
+- 1s2p 18650 LiCoO2 cells 
