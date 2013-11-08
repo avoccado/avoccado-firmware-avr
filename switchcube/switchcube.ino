@@ -1,4 +1,3 @@
-
 // I2Cdev and MPU6050 must be installed as libraries, or else the .cpp/.h files
 // for both classes must be in the include path of the project
 #include "I2Cdev.h"
@@ -26,7 +25,9 @@ Adafruit_NeoPixel leds = Adafruit_NeoPixel(8, LEDPIN, NEO_GRB + NEO_KHZ800); // 
 RF24 radio(A0,10); // CE, CS. CE at pin A0, CSN at pin 10
 RF24Network network(radio); // mesh network layer 
 
-const unsigned long interval = 10000; // KEEPALIVE interval in [ms]
+const unsigned long interval_filter = 10;
+const unsigned long interval = 75; // KEEPALIVE interval in [ms]
+unsigned long last_time_filtered;
 byte sweep=0;
 byte nodeID = 1; // Unique Node Identifier (2...254) - also the last byte of the IPv4 adress, not used if USE_EEPROM is set
 uint16_t this_node = 00; // always begin with 0 for octal declaration, not used if USE_EEPROM is set
@@ -80,6 +81,33 @@ int16_t gx, gy, gz; // gyro values
 // without compression or data loss), and easy to parse, but impossible to read
 // for a human.
 // #define OUTPUT_BINARY_mpu
+
+unsigned long last_read_time;
+float         last_x_angle;  // These are the filtered angles
+float         last_y_angle;
+float         last_z_angle;  
+float         last_gyro_x_angle;  // Store the gyro angles to compare drift
+float         last_gyro_y_angle;
+float         last_gyro_z_angle;
+
+inline unsigned long get_last_time() {return last_read_time;}
+inline float get_last_x_angle() {return last_x_angle;}
+inline float get_last_y_angle() {return last_y_angle;}
+inline float get_last_z_angle() {return last_z_angle;}
+inline float get_last_gyro_x_angle() {return last_gyro_x_angle;}
+inline float get_last_gyro_y_angle() {return last_gyro_y_angle;}
+inline float get_last_gyro_z_angle() {return last_gyro_z_angle;}
+
+//  Use the following global variables and access functions
+//  to calibrate the acceleration sensor
+float    base_x_accel;
+float    base_y_accel;
+float    base_z_accel;
+
+float    base_x_gyro;
+float    base_y_gyro;
+float    base_z_gyro;
+
 
 void setup() {
   pinMode(7,OUTPUT);
@@ -160,11 +188,11 @@ void setup() {
   Serial.print(mpu.getZGyroOffset()); 
   Serial.print(F("\t")); // 0
   Serial.print(F("\n"));
-
+  // -596	-585	664
   // change accel/gyro offset values
-  mpu.setXGyroOffset(21);
-  mpu.setYGyroOffset(7);
-  mpu.setZGyroOffset(9);
+  mpu.setXGyroOffset(-10);
+  mpu.setYGyroOffset(9);
+  mpu.setZGyroOffset(68);
   
   Serial.print(mpu.getXAccelOffset()); 
   Serial.print(F("\t")); // -76
@@ -180,7 +208,8 @@ void setup() {
   Serial.print(F("\t")); // 0
   Serial.print(F("\n"));
 
-  // configure Arduino LED for output
+  calibrate_sensors(); 
+  set_last_read_angle_data(millis(), 0, 0, 0, 0, 0, 0);
   ledst(1);
 }
 
@@ -219,6 +248,12 @@ void loop() {
   }
   unsigned long now = millis();
   unsigned long nowM = micros();
+
+  if ( now - last_time_filtered >= interval_filter ){ // non-blocking check for start of debug service routine interval
+  getangle();
+  last_time_filtered = now;
+  }
+  
   if ( now - last_time_sent >= interval ) // non-blocking check for start of debug service routine interval
   {
     ledst(2);
@@ -246,7 +281,7 @@ void loop() {
         {
           errors++;
           if (DEBUG) {
-            p("%010ld: No ACK timeout.\n", millis()); // An error occured, need to stahp!
+            p("%010ld: ACK timeout.\n", millis()); // An error occured, need to stahp!
           }
         }
         iterations++;
@@ -266,20 +301,13 @@ void loop() {
          */
       }
     }
-    sweep+=100;
+    sweep+=1;
     if (sweep>254) sweep=0;
-    /*
+    strobe=!strobe;
     if ( this_node == 00){
       for (short _i=0; _i<num_active_nodes; _i++) {
-        send_L1(active_nodes[_i],(byte) sweep&0xFF);
+        send_K(active_nodes[_i]);
       }
-      strobe=!strobe;
-    }
-    */
-    if ( this_node == 00){
-      send_K(01);
-      //send_L1(00,(byte) sweep&0xFF);
-      strobe=!strobe;
     }
   }
 }
@@ -330,4 +358,6 @@ unsigned long microsRollover() { //based on Rob Faludi's (rob.faludi.com) milli 
   } 
   return microRollovers;
 }
+
+
 
