@@ -1,11 +1,11 @@
 
 /* WIP DRAFT, TBD
- C voltage (1-24 byte) fixed point values
- D current (1-24 byte) fixed point values
- E battery voltage (2 byte)
- F error code + error value
+ C voltage (1-24 bytes) fixed point values
+ D current (1-24 bytes) fixed point values
+ E battery voltage (2 bytes)
+ F error code (1 byte) + error value (1 byte)
  G 
- K draft for home automation packet
+ H reserved for home automation packet
  L LED map
  T send out timestamp
  V software version, UID, wID, location

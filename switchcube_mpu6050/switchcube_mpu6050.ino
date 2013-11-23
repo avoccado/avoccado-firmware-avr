@@ -2,6 +2,8 @@
 // for both classes must be in the include path of the project
 #include "I2Cdev.h"
 #include "MPU6050.h"
+#include <avr/sleep.h>
+#include <avr/power.h>
 
 // Arduino Wire library is required if I2Cdev I2CDEV_ARDUINO_WIRE implementation
 // is used in I2Cdev.h
@@ -109,6 +111,14 @@ float    base_y_gyro;
 float    base_z_gyro;
 
 
+// Sleep declarations
+typedef enum { wdt_16ms = 0, wdt_32ms, wdt_64ms, wdt_128ms, wdt_250ms, wdt_500ms, wdt_1s, wdt_2s, wdt_4s, wdt_8s } wdt_prescalar_e;
+void setup_watchdog(uint8_t prescalar);
+void do_sleep(void);
+const short sleep_cycles_per_transmission = 10;
+volatile short sleep_cycles_remaining = sleep_cycles_per_transmission;
+
+
 void setup() {
   pinMode(7,OUTPUT);
   digitalWrite(7, HIGH); // Vcc for MPU6050  
@@ -119,8 +129,10 @@ void setup() {
   ledst(5);
   pinMode(A1, OUTPUT); // GND for the NRF24 module
   digitalWrite(A1, LOW); // GND for the NRF24 module
+  pinMode(8, OUTPUT); // Vcc for the NRF24 module, 3.5-5V output to an LDO supplying 3.3V
+  digitalWrite(8, HIGH); // Vcc for the NRF24 module activated. Shutdown with LOW.
   pinMode(5, OUTPUT); // Vcc for the NRF24 module, 3.5-5V output to an LDO supplying 3.3V
-  digitalWrite(5, HIGH); // Vcc for the NRF24 module activated. Shutdown with LOW.
+  digitalWrite(5, HIGH); // Vcc for the NRF24 module activated. Shutdown with LOW.  
   Serial.begin(115200); // initialize serial communication
   delay(128);
   // initialize devices
@@ -165,8 +177,8 @@ void setup() {
   // verify connection
   Serial.println(F("testing I2C device connections..."));
   Serial.println(mpu.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
-  mpu.setDLPFMode(6); // 5Hz low pass
-  // mpu.setDHPFMode(4); // 0.625Hz high pass
+  mpu.setDLPFMode(2); // 2 = 100Hz, 6 = 5Hz low pass
+  mpu.setDHPFMode(4); // 0.625Hz high pass for motion detection
   mpu.setFullScaleAccelRange(0); //
   mpu.setFullScaleGyroRange(3); // 2000deg/s
   //    Wire.write(0x16);            // register DLPF_CFG - low pass filter configuration & sample rate
@@ -211,9 +223,94 @@ void setup() {
   calibrate_sensors(); 
   set_last_read_angle_data(millis(), 0, 0, 0, 0, 0, 0);
   ledst(1);
+  setup_watchdog(wdt_1s); // Set the watchdog timer interval
 }
 
-void loop() {
+void loop(){
+  wilssen();
+  radio.powerDown();
+  Serial.print(F("MotionDetectionDuration: "));
+   Serial.print(mpu.getMotionDetectionDuration());
+  Serial.print(F("\t Threshold: "));  
+  Serial.print(mpu.getMotionDetectionThreshold());
+  Serial.print(F("\t gyroRange: "));  
+  Serial.print(mpu.getFullScaleGyroRange());
+  Serial.print(F("\t getClockSource: "));  
+  Serial.print(mpu.getClockSource());
+  Serial.print(F("\n"));
+  Serial.print(F("Radio down.\n"));
+  delay(1000);
+
+  Serial.print(F("+MCU into sleep mode for 10s.\n"));
+  delay(50);
+  while( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
+  sleep_cycles_remaining = sleep_cycles_per_transmission;
+
+  Serial.print(F("+Xgyro now sleeping for 10s.\n"));
+  mpu.setStandbyXGyroEnabled(1);
+  delay(50);
+  while( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
+  sleep_cycles_remaining = sleep_cycles_per_transmission;
+
+  Serial.print(F("+Ygyro now sleeping for 10s.\n"));
+  mpu.setStandbyYGyroEnabled(1);
+  delay(50);
+  while( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
+  sleep_cycles_remaining = sleep_cycles_per_transmission;
+
+  Serial.print(F("+Zgyro now sleeping for 10s.\n"));
+  mpu.setStandbyZGyroEnabled(1);
+  delay(50);
+  while( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
+  sleep_cycles_remaining = sleep_cycles_per_transmission;
+
+  Serial.print(F("+setSleepEnabled(1) for 10s.\n"));
+  mpu.setSleepEnabled(1);
+  delay(50);
+  while( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
+  sleep_cycles_remaining = sleep_cycles_per_transmission;
+  
+  Serial.print(F("MCU now sleeping for 10s with power to radio cut off.\n"));
+  delay(127);  
+  while( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
+  Serial.print(F("MCU awake. 1s delay to radio powerup.\n"));
+  digitalWrite(8,HIGH);
+  digitalWrite(7,HIGH);
+  delay(1000);     
+  mpu.setSleepEnabled(0);
+  radio.powerUp();
+  Serial.print(F("Radio up.\n"));
+  sleep_cycles_remaining = sleep_cycles_per_transmission;
+}
+
+// 0=16ms, 1=32ms,2=64ms,3=125ms,4=250ms,5=500ms
+// 6=1 sec,7=2 sec, 8=4 sec, 9= 8sec
+void setup_watchdog(uint8_t prescalar)
+{
+  prescalar = min(9,prescalar);
+  uint8_t wdtcsr = prescalar & 7;
+  if ( prescalar & 8 )
+    wdtcsr |= _BV(WDP3);
+  MCUSR &= ~_BV(WDRF);
+  WDTCSR = _BV(WDCE) | _BV(WDE);
+  WDTCSR = _BV(WDCE) | wdtcsr | _BV(WDIE);
+}
+
+ISR(WDT_vect)
+{
+  --sleep_cycles_remaining;
+}
+
+void do_sleep(void)
+{
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN); // sleep mode is set here
+  sleep_enable();
+  sleep_mode();                        // System sleeps here
+  sleep_disable();                     // System continues execution here when watchdog timed out
+}
+
+
+void wilssen() {
   network.update();
   updates++;
   while ( network.available() ) // while there are packets in the FIFO buffer
@@ -248,7 +345,6 @@ void loop() {
   }
   unsigned long now = millis();
   unsigned long nowM = micros();
-
   if ( now - last_time_filtered >= interval_filter ){ // non-blocking check for start of debug service routine interval
   getangle();
   last_time_filtered = now;
@@ -285,20 +381,6 @@ void loop() {
           }
         }
         iterations++;
-        /*
-      Serial.print("loop: \t\t");
-         Serial.println(iterations);
-         Serial.print("errors: \t\t");
-         Serial.println(errors);     
-         Serial.print("send error in %: \t");
-         Serial.println(errors*100/iterations);
-         Serial.print("pkts sent    : \t");
-         Serial.println(p_sent);
-         Serial.print("pkts received: \t");
-         Serial.println(p_recv);
-         Serial.print("replies in %: \t");
-         Serial.println(p_recv*100/(p_sent-1));
-         */
       }
     }
     sweep+=1;

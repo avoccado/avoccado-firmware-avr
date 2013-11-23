@@ -21,7 +21,7 @@ void calibrate_sensors() {
   float                 y_gyro = 0;
   float                 z_gyro = 0;
   
-  Serial.println(F("Starting Calibration"));
+  Serial.println(F("Starting calibration"));
 
   // Discard the first set of values read from the IMU
   mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
@@ -52,7 +52,7 @@ void calibrate_sensors() {
   base_y_gyro = y_gyro;
   base_z_gyro = z_gyro;
   
-  Serial.println(F("Finishing Calibration"));
+  Serial.println(F("Calibration finished"));
 }
 
 void mpucheck() {
