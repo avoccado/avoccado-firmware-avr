@@ -10,37 +10,38 @@
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
 #include "Wire.h"
 #endif
-
 #include <RF24Network.h>
 #include <RF24.h>
 #include <SPI.h>
 #include <stdarg.h>
-#include <Adafruit_NeoPixel.h>
 #include <EEPROM.h>
 #define DEBUG 1 // debug mode with verbose output over serial at 115200 bps
 #define USE_EEPROM // read nodeID and network settings from EEPROM at bootup, overwrites nodeID and MAC.
 #define LEDPIN 6
 #define KEEPALIVE 0 // keep connections alive with regular polling to node 0
+#define USE_LEDS // LED stripe used
 
+#ifdef USE_LEDS
+#include <Adafruit_NeoPixel.h>
 Adafruit_NeoPixel leds = Adafruit_NeoPixel(8, LEDPIN, NEO_GRB + NEO_KHZ800); // number of pixels in strip, pin number, pixel type flags
-
-RF24 radio(A0,10); // CE, CS. CE at pin A0, CSN at pin 10
-RF24Network network(radio); // mesh network layer 
+#endif
+RF24 radio(A0, 10); // CE, CS. CE at pin A0, CSN at pin 10
+RF24Network network(radio); // mesh network layer
 
 const unsigned long interval_filter = 10;
 const unsigned long interval = 75; // KEEPALIVE interval in [ms]
 unsigned long last_time_filtered;
-byte sweep=0;
+byte sweep = 0;
 byte nodeID = 1; // Unique Node Identifier (2...254) - also the last byte of the IPv4 adress, not used if USE_EEPROM is set
 uint16_t this_node = 00; // always begin with 0 for octal declaration, not used if USE_EEPROM is set
 // Debug variables, TODO: don't initialize if DEBUG is set to 0
-unsigned long iterations=0;
-unsigned long errors=0;
-unsigned int loss=0;
-unsigned long p_sent=0;
-unsigned long p_recv=0;
+unsigned long iterations = 0;
+unsigned long errors = 0;
+unsigned int loss = 0;
+unsigned long p_sent = 0;
+unsigned long p_recv = 0;
 // Variables for the 32bit unsigned long Microsecond rollover handling
-static unsigned long microRollovers=0; // variable that permanently holds the number of rollovers since startup
+static unsigned long microRollovers = 0; // variable that permanently holds the number of rollovers since startup
 static unsigned long halfwayMicros = 2147483647; // this is halfway to the max unsigned long value of 4294967296
 static boolean readyToRoll = false; // tracks whether we've made it halfway to rollover
 
@@ -59,46 +60,52 @@ void handle_T(RF24NetworkHeader& header);
 void handle_B(RF24NetworkHeader& header);
 void ledupdate(byte* ledmap);
 void p(char *fmt, ... );
-void ledst(int sta=127);
+void ledst(int sta = 127);
 void mpucheck();
-bool strobe=1; 
+bool strobe = 1;
 
 // class default I2C address is 0x68
 // specific I2C addresses may be passed as a parameter here
 // AD0 low = 0x68 (default)
 // AD0 high = 0x69
 MPU6050 mpu;
-//MPU6050 mpu(0x69); // <-- use for AD0 high
+//MPU6050 mpu(0x69); // alternative I2C address, if AD0 is set high
 
 int16_t ax, ay, az; // accel values
 int16_t gx, gy, gz; // gyro values
 
-// uncomment "OUTPUT_READABLE_mpu" if you want to see a tab-separated
-// list of the accel X/Y/Z and then gyro X/Y/Z values in decimal. Easy to read,
-// not so easy to parse, and slow(er) over UART.
-#define OUTPUT_READABLE_mpu
-
-// uncomment "OUTPUT_BINARY_mpu" to send all 6 axes of data as 16-bit
-// binary, one right after the other. This is very fast (as fast as possible
-// without compression or data loss), and easy to parse, but impossible to read
-// for a human.
-// #define OUTPUT_BINARY_mpu
+#define OUTPUT_READABLE_mpu // tab-separated list of the accel X/Y/Z and then gyro X/Y/Z values in decimal.
+// #define OUTPUT_BINARY_mpu //send all 6 axes of data as 16-bit
 
 unsigned long last_read_time;
 float         last_x_angle;  // These are the filtered angles
 float         last_y_angle;
-float         last_z_angle;  
+float         last_z_angle;
 float         last_gyro_x_angle;  // Store the gyro angles to compare drift
 float         last_gyro_y_angle;
 float         last_gyro_z_angle;
 
-inline unsigned long get_last_time() {return last_read_time;}
-inline float get_last_x_angle() {return last_x_angle;}
-inline float get_last_y_angle() {return last_y_angle;}
-inline float get_last_z_angle() {return last_z_angle;}
-inline float get_last_gyro_x_angle() {return last_gyro_x_angle;}
-inline float get_last_gyro_y_angle() {return last_gyro_y_angle;}
-inline float get_last_gyro_z_angle() {return last_gyro_z_angle;}
+inline unsigned long get_last_time() {
+  return last_read_time;
+}
+inline float get_last_x_angle() {
+  return last_x_angle;
+}
+inline float get_last_y_angle() {
+  return last_y_angle;
+}
+inline float get_last_z_angle() {
+  return last_z_angle;
+}
+inline float get_last_gyro_x_angle() {
+  return last_gyro_x_angle;
+}
+inline float get_last_gyro_y_angle() {
+  return last_gyro_y_angle;
+}
+inline float get_last_gyro_z_angle() {
+  return last_gyro_z_angle;
+}
 
 //  Use the following global variables and access functions
 //  to calibrate the acceleration sensor
@@ -110,7 +117,6 @@ float    base_x_gyro;
 float    base_y_gyro;
 float    base_z_gyro;
 
-
 // Sleep declarations
 typedef enum { wdt_16ms = 0, wdt_32ms, wdt_64ms, wdt_128ms, wdt_250ms, wdt_500ms, wdt_1s, wdt_2s, wdt_4s, wdt_8s } wdt_prescalar_e;
 void setup_watchdog(uint8_t prescalar);
@@ -118,25 +124,28 @@ void do_sleep(void);
 const short sleep_cycles_per_transmission = 10;
 volatile short sleep_cycles_remaining = sleep_cycles_per_transmission;
 
-
 void setup() {
-  pinMode(7,OUTPUT);
-  digitalWrite(7, HIGH); // Vcc for MPU6050  
+  pinMode(7, OUTPUT);
+  digitalWrite(7, HIGH); // Vcc for MPU6050
   pinMode(A6, INPUT); // some nodes have a sense wire to the 3v3 for the NRF24 module via external LDO
-  pinMode(A7, INPUT); // see above
+  pinMode(A7, INPUT); // same as above
+  pinMode(9, OUTPUT); // vibration motor
+  pinMode(9, LOW); // pull low and disable motor for now
+#ifdef USE_LEDS
   leds.begin(); // the 8 LEDs
   leds.show(); // Initialize all pixels to 'off'
-  ledst(5);
-  pinMode(A1, OUTPUT); // GND for the NRF24 module
+  ledst(5); // set initial status to 5, ledst() sets the first
+#endif
+  pinMode(A1, OUTPUT); // GND for the NRF24 module (rev1)
   digitalWrite(A1, LOW); // GND for the NRF24 module
-  pinMode(8, OUTPUT); // Vcc for the NRF24 module, 3.5-5V output to an LDO supplying 3.3V
+  pinMode(8, OUTPUT); // Vcc for the NRF24 module, 3.5-5V output to an LDO supplying 3.3V (rev1)
   digitalWrite(8, HIGH); // Vcc for the NRF24 module activated. Shutdown with LOW.
-  pinMode(5, OUTPUT); // Vcc for the NRF24 module, 3.5-5V output to an LDO supplying 3.3V
-  digitalWrite(5, HIGH); // Vcc for the NRF24 module activated. Shutdown with LOW.  
+  pinMode(5, OUTPUT); // Vcc for the NRF24 module, 3.5-5V output to an LDO supplying 3.3V (rev1)
+  digitalWrite(5, HIGH); // Vcc for the NRF24 module activated. Shutdown with LOW.
   Serial.begin(115200); // initialize serial communication
   delay(128);
   // initialize devices
-  Serial.println(F("Initializing devices..."));
+  Serial.println(F("wilssen.core boot"));
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
   Serial.println(F("I2CSetup"));
   Wire.begin(); // join I2C bus (I2Cdev library doesn't do this automatically)
@@ -147,33 +156,36 @@ void setup() {
   Serial.println(F("mpu.initialize"));
   mpu.initialize();
   ledst(4);
-  #ifdef USE_EEPROM
-  nodeID=EEPROM.read(0);
+#ifdef USE_EEPROM
+  nodeID = EEPROM.read(0);
   Serial.print(F("EEPROM, "));
 #endif
   Serial.println(nodeID);
   Serial.print(F("Network ID (oct): "));
 #ifdef USE_EEPROM
-  this_node = ((int) EEPROM.read(15)*256) + ((int) (EEPROM.read(16)));
+  this_node = ((int) EEPROM.read(15) * 256) + ((int) (EEPROM.read(16)));
   Serial.print(F("EEPROM, "));
 #endif
-  Serial.print(this_node,OCT);
+  Serial.print(this_node, OCT);
   Serial.print(F(", (dec): "));
-  Serial.print(this_node,DEC);
+  Serial.print(this_node, DEC);
   Serial.println();
   SPI.begin(); // SPI for the NRF24
   radio.begin(); // init of the NRF24
   // The amplifier gain can be set to RF24_PA_MIN=-18dBm, RF24_PA_LOW=-12dBm, RF24_PA_MED=-6dBM, and RF24_PA_MAX=0dBm.
   radio.setPALevel(RF24_PA_MAX); // transmitter gain value (see above)
   network.begin( 1, this_node ); // fixed radio channel, node ID
-  Serial.print(F("UID: \n"));
+  Serial.print(F("UID: "));
+  Serial.print(F("(undefined)\n"));
   p("%010ld: Starting up\n", millis());
-  colorWipe(leds.Color(100, 0, 0), 50); // Red
-  colorWipe(leds.Color(0, 100, 0), 50); // Green
-  colorWipe(leds.Color(0, 0, 100), 50); // Blue
+#ifdef USE_LEDS
+  colorWipe(leds.Color(50, 0, 0), 50); // Red
+  colorWipe(leds.Color(0, 50, 0), 50); // Green
+  colorWipe(leds.Color(0, 0, 50), 50); // Blue
   colorWipe(leds.Color(0, 0, 0), 0); // clear
   ledst(5);
-  
+#endif
+
   // verify connection
   Serial.println(F("testing I2C device connections..."));
   Serial.println(mpu.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
@@ -187,17 +199,18 @@ void setup() {
   Serial.println(F("Reading/Updating internal sensor offsets..."));
   // -76	-2359	1688	0	0	0
   //-596	-585	664	0	0	0
-  Serial.print(mpu.getXAccelOffset()); 
+  //-2648	823	808	-10	9	68	switchcube alpha 2
+  Serial.print(mpu.getXAccelOffset());
   Serial.print(F("\t")); // -76
-  Serial.print(mpu.getYAccelOffset()); 
+  Serial.print(mpu.getYAccelOffset());
   Serial.print(F("\t")); // -2359
-  Serial.print(mpu.getZAccelOffset()); 
+  Serial.print(mpu.getZAccelOffset());
   Serial.print(F("\t")); // 1688
-  Serial.print(mpu.getXGyroOffset()); 
+  Serial.print(mpu.getXGyroOffset());
   Serial.print(F("\t")); // 0
-  Serial.print(mpu.getYGyroOffset()); 
+  Serial.print(mpu.getYGyroOffset());
   Serial.print(F("\t")); // 0
-  Serial.print(mpu.getZGyroOffset()); 
+  Serial.print(mpu.getZGyroOffset());
   Serial.print(F("\t")); // 0
   Serial.print(F("\n"));
   // -596	-585	664
@@ -205,37 +218,58 @@ void setup() {
   mpu.setXGyroOffset(-10);
   mpu.setYGyroOffset(9);
   mpu.setZGyroOffset(68);
-  
-  Serial.print(mpu.getXAccelOffset()); 
+
+  Serial.print(mpu.getXAccelOffset());
   Serial.print(F("\t")); // -76
-  Serial.print(mpu.getYAccelOffset()); 
+  Serial.print(mpu.getYAccelOffset());
   Serial.print(F("\t")); // -2359
-  Serial.print(mpu.getZAccelOffset()); 
+  Serial.print(mpu.getZAccelOffset());
   Serial.print(F("\t")); // 1688
-  Serial.print(mpu.getXGyroOffset()); 
+  Serial.print(mpu.getXGyroOffset());
   Serial.print(F("\t")); // 0
-  Serial.print(mpu.getYGyroOffset()); 
+  Serial.print(mpu.getYGyroOffset());
   Serial.print(F("\t")); // 0
-  Serial.print(mpu.getZGyroOffset()); 
+  Serial.print(mpu.getZGyroOffset());
   Serial.print(F("\t")); // 0
   Serial.print(F("\n"));
 
-  calibrate_sensors(); 
+  calibrate_sensors();
   set_last_read_angle_data(millis(), 0, 0, 0, 0, 0, 0);
+#ifdef USE_LEDS
   ledst(1);
+#endif
   setup_watchdog(wdt_1s); // Set the watchdog timer interval
 }
 
-void loop(){
+void mode(byte _mode) {
+  if (_mode == 0) {
+    radio.powerDown();
+    mpu.setSleepEnabled(1);
+    int _j = 18;
+    for (int _i = 1; _i < _j; _i++) {
+      pinMode(9, INPUT);
+      delay(768 / _i);
+      pinMode(9, OUTPUT);
+      digitalWrite(9, LOW);
+      delay(128);
+      delay(64 * _i);
+    }
+    setup_watchdog(wdt_8s);
+    while (1) do_sleep(); // sleep forever
+  }
+}
+
+void loop() {
   wilssen();
+  mode(0);
   radio.powerDown();
   Serial.print(F("MotionDetectionDuration: "));
-   Serial.print(mpu.getMotionDetectionDuration());
-  Serial.print(F("\t Threshold: "));  
+  Serial.print(mpu.getMotionDetectionDuration());
+  Serial.print(F("\t Threshold: "));
   Serial.print(mpu.getMotionDetectionThreshold());
-  Serial.print(F("\t gyroRange: "));  
+  Serial.print(F("\t gyroRange: "));
   Serial.print(mpu.getFullScaleGyroRange());
-  Serial.print(F("\t getClockSource: "));  
+  Serial.print(F("\t getClockSource: "));
   Serial.print(mpu.getClockSource());
   Serial.print(F("\n"));
   Serial.print(F("Radio down.\n"));
@@ -243,40 +277,40 @@ void loop(){
 
   Serial.print(F("+MCU into sleep mode for 10s.\n"));
   delay(50);
-  while( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
+  while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
   sleep_cycles_remaining = sleep_cycles_per_transmission;
 
   Serial.print(F("+Xgyro now sleeping for 10s.\n"));
   mpu.setStandbyXGyroEnabled(1);
   delay(50);
-  while( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
+  while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
   sleep_cycles_remaining = sleep_cycles_per_transmission;
 
   Serial.print(F("+Ygyro now sleeping for 10s.\n"));
   mpu.setStandbyYGyroEnabled(1);
   delay(50);
-  while( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
+  while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
   sleep_cycles_remaining = sleep_cycles_per_transmission;
 
   Serial.print(F("+Zgyro now sleeping for 10s.\n"));
   mpu.setStandbyZGyroEnabled(1);
   delay(50);
-  while( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
+  while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
   sleep_cycles_remaining = sleep_cycles_per_transmission;
 
   Serial.print(F("+setSleepEnabled(1) for 10s.\n"));
   mpu.setSleepEnabled(1);
   delay(50);
-  while( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
+  while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
   sleep_cycles_remaining = sleep_cycles_per_transmission;
-  
+
   Serial.print(F("MCU now sleeping for 10s with power to radio cut off.\n"));
-  delay(127);  
-  while( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
+  delay(127);
+  while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
   Serial.print(F("MCU awake. 1s delay to radio powerup.\n"));
-  digitalWrite(8,HIGH);
-  digitalWrite(7,HIGH);
-  delay(1000);     
+  digitalWrite(8, HIGH);
+  digitalWrite(7, HIGH);
+  delay(1000);
   mpu.setSleepEnabled(0);
   radio.powerUp();
   Serial.print(F("Radio up.\n"));
@@ -287,7 +321,7 @@ void loop(){
 // 6=1 sec,7=2 sec, 8=4 sec, 9= 8sec
 void setup_watchdog(uint8_t prescalar)
 {
-  prescalar = min(9,prescalar);
+  prescalar = min(9, prescalar);
   uint8_t wdtcsr = prescalar & 7;
   if ( prescalar & 8 )
     wdtcsr |= _BV(WDP3);
@@ -315,52 +349,54 @@ void wilssen() {
   updates++;
   while ( network.available() ) // while there are packets in the FIFO buffer
   {
+#ifdef USE_LEDS
     ledst(3); // light up status LED with pattern #3
+#endif
     RF24NetworkHeader header; // initialize header
     network.peek(header); // preview the header, but don't advance nor flush the packet
     switch (header.type) // check which packet type we received
     {
-    case 'K':
-      handle_K(header);
-      break;
-    case 'L':
-      handle_L(header);
-      break;
-    case 'T':
-      handle_T(header);
-      break;
-    case 'B':
-      handle_B(header);
-      break;      
-    default:
-      network.read(header,0,0); // if none of the above packet types matched, read out and flush the buffer
-      if (DEBUG) {
-        Serial.print(F("            undefined packet type: ")); // print the unrecognized packet type
-        Serial.print(header.type);
-        Serial.println();
-      }
-      break;
+      case 'K':
+        handle_K(header);
+        break;
+      case 'L':
+        handle_L(header);
+        break;
+      case 'T':
+        handle_T(header);
+        break;
+      case 'B':
+        handle_B(header);
+        break;
+      default:
+        network.read(header, 0, 0); // if none of the above packet types matched, read out and flush the buffer
+        if (DEBUG) {
+          Serial.print(F("            undefined packet type: ")); // print the unrecognized packet type
+          Serial.print(header.type);
+          Serial.println();
+        }
+        break;
     };
     ledst(); // reset the status LED to the default pattern
   }
   unsigned long now = millis();
   unsigned long nowM = micros();
-  if ( now - last_time_filtered >= interval_filter ){ // non-blocking check for start of debug service routine interval
-  getangle();
-  last_time_filtered = now;
+  if ( now - last_time_filtered >= interval_filter ) { // non-blocking check for start of debug service routine interval
+    getangle();
+    last_time_filtered = now;
   }
-  
+
   if ( now - last_time_sent >= interval ) // non-blocking check for start of debug service routine interval
   {
     ledst(2);
     /* // unsigned long int rollover checking:
      Serial.print(microsRollover()); // how many times has the unsigned long micros() wrapped?
-     Serial.print(":"); //separator 
+     Serial.print(":"); //separator
      Serial.print(nowM); //micros();
      Serial.print("\n"); //new line
      */
     if (DEBUG) {
-      p("%010ld: %ld Hz\n",millis(),updates*1000/interval);
+      p("%010ld: %ld Hz\n", millis(), updates * 1000 / interval);
     }
     updates = 0;
     last_time_sent = now;
@@ -371,7 +407,7 @@ void wilssen() {
       {
         unsigned long nowM = micros();
         ok = send_T(to);
-        if (DEBUG) p(" in %ld us.\n", (micros()-nowM) );
+        if (DEBUG) p(" in %ld us.\n", (micros() - nowM) );
         if (ok) p_sent++;
         if (!ok)
         {
@@ -383,19 +419,19 @@ void wilssen() {
         iterations++;
       }
     }
-    sweep+=1;
-    if (sweep>254) sweep=0;
-    strobe=!strobe;
-    if ( this_node == 00){
-      for (short _i=0; _i<num_active_nodes; _i++) {
+    sweep += 1;
+    if (sweep > 254) sweep = 0;
+    strobe = !strobe;
+    if ( this_node == 00) {
+      for (short _i = 0; _i < num_active_nodes; _i++) {
         send_K(active_nodes[_i]);
       }
     }
   }
 }
 
-// Arduino version of the printf()-funcition in C 
-void p(char *fmt, ... ){
+// Arduino version of the printf()-funcition in C
+void p(char *fmt, ... ) {
   char tmp[128]; // resulting string limited to 128 chars
   va_list args;
   va_start (args, fmt );
@@ -411,7 +447,7 @@ void add_node(uint16_t node) //TODO: remove_node, after a certain timeout...
     if ( active_nodes[i] == node ) break; // Do we already know about this node?
   if ( i == -1 && num_active_nodes < max_active_nodes )  // If not and there is enough place, add it to the table
   {
-    active_nodes[num_active_nodes++] = node; 
+    active_nodes[num_active_nodes++] = node;
     if (DEBUG) {
       p("%010ld: New node: %05o\n", millis(), node);
     }
@@ -420,9 +456,9 @@ void add_node(uint16_t node) //TODO: remove_node, after a certain timeout...
 
 unsigned long microsRollover() { //based on Rob Faludi's (rob.faludi.com) milli wrapper
 
-    // This would work even if the function were only run once every 35 minutes, though typically,
+  // This would work even if the function were only run once every 35 minutes, though typically,
   // the function should be called as frequently as possible to capture the actual moment of rollover.
-  // The rollover counter is good for over 584000 years of runtime. 
+  // The rollover counter is good for over 584000 years of runtime.
   //  --Alex Shure
 
   unsigned long nowMicros = micros(); // the time right now
@@ -437,7 +473,7 @@ unsigned long microsRollover() { //based on Rob Faludi's (rob.faludi.com) milli 
     // then we have rolled over
     microRollovers++; // add one to the count of rollovers (approx 71 minutes)
     readyToRoll = false; // we're no longer past halfway, reset!
-  } 
+  }
   return microRollovers;
 }
 

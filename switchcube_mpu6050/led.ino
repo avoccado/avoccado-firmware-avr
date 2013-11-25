@@ -1,5 +1,6 @@
 
 void ledst(int sta){
+  #ifdef USE_LEDS
   uint32_t c=0;
   switch (sta) {
   case 0:
@@ -41,6 +42,7 @@ void ledst(int sta){
   }
   leds.setPixelColor(0, c);
   leds.show();
+  #endif
 }
 
 PROGMEM prog_uchar red[]=
