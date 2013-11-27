@@ -1,3 +1,7 @@
+#if 1 // BOF preprocessor bug workaround
+__asm volatile ("nop");
+#endif
+
 // I2Cdev and MPU6050 must be installed as libraries, or else the .cpp/.h files
 // for both classes must be in the include path of the project
 #include "I2Cdev.h"
@@ -15,11 +19,13 @@
 #include <SPI.h>
 #include <stdarg.h>
 #include <EEPROM.h>
+#include <CapacitiveSensor.h>
 #define DEBUG 1 // debug mode with verbose output over serial at 115200 bps
 #define USE_EEPROM // read nodeID and network settings from EEPROM at bootup, overwrites nodeID and MAC.
 #define LEDPIN 6
 #define KEEPALIVE 0 // keep connections alive with regular polling to node 0
 #define USE_LEDS // LED stripe used
+//#define USE_TOUCH // capacitive touch sensing
 
 #ifdef USE_LEDS
 #include <Adafruit_NeoPixel.h>
@@ -28,8 +34,12 @@ Adafruit_NeoPixel leds = Adafruit_NeoPixel(8, LEDPIN, NEO_GRB + NEO_KHZ800); // 
 RF24 radio(A0, 10); // CE, CS. CE at pin A0, CSN at pin 10
 RF24Network network(radio); // mesh network layer
 
+#ifdef USE_TOUCH
+CapacitiveSensor cs = CapacitiveSensor(8,7);        // capacitive sensing at pins 7 and 8
+#endif
+
 const unsigned long interval_filter = 10;
-const unsigned long interval = 75; // KEEPALIVE interval in [ms]
+const unsigned long interval = 100; // KEEPALIVE interval in [ms]
 unsigned long last_time_filtered;
 byte sweep = 0;
 byte nodeID = 1; // Unique Node Identifier (2...254) - also the last byte of the IPv4 adress, not used if USE_EEPROM is set
@@ -123,29 +133,30 @@ void setup_watchdog(uint8_t prescalar);
 void do_sleep(void);
 const short sleep_cycles_per_transmission = 10;
 volatile short sleep_cycles_remaining = sleep_cycles_per_transmission;
+void mode(byte _mode);
+void vibr(byte _state);
 
 void setup() {
-  pinMode(7, OUTPUT);
+// ONLY for C3POW prototype 2:
+/*  pinMode(7,OUTPUT);
   digitalWrite(7, HIGH); // Vcc for MPU6050
-  pinMode(A6, INPUT); // some nodes have a sense wire to the 3v3 for the NRF24 module via external LDO
-  pinMode(A7, INPUT); // same as above
-  pinMode(9, OUTPUT); // vibration motor
-  pinMode(9, LOW); // pull low and disable motor for now
+  pinMode(8, OUTPUT); // Vcc for the NRF24 module, 3.5-5V output to an LDO supplying 3.3V
+  digitalWrite(8, HIGH); // Vcc for the NRF24 module activated. Shutdown with LOW.
+  */
+
+  vibr(0); // pull low and disable motor for now
 #ifdef USE_LEDS
   leds.begin(); // the 8 LEDs
   leds.show(); // Initialize all pixels to 'off'
   ledst(5); // set initial status to 5, ledst() sets the first
 #endif
-  pinMode(A1, OUTPUT); // GND for the NRF24 module (rev1)
-  digitalWrite(A1, LOW); // GND for the NRF24 module
-  pinMode(8, OUTPUT); // Vcc for the NRF24 module, 3.5-5V output to an LDO supplying 3.3V (rev1)
-  digitalWrite(8, HIGH); // Vcc for the NRF24 module activated. Shutdown with LOW.
-  pinMode(5, OUTPUT); // Vcc for the NRF24 module, 3.5-5V output to an LDO supplying 3.3V (rev1)
-  digitalWrite(5, HIGH); // Vcc for the NRF24 module activated. Shutdown with LOW.
+  #ifdef USE_TOUCH
+  cs.set_CS_AutocaL_Millis(64000);
+  #endif
   Serial.begin(115200); // initialize serial communication
-  delay(128);
+  delay(64);
   // initialize devices
-  Serial.println(F("wilssen.core boot"));
+  Serial.println(F("C3POW 0.20131127"));
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
   Serial.println(F("I2CSetup"));
   Wire.begin(); // join I2C bus (I2Cdev library doesn't do this automatically)
@@ -174,6 +185,7 @@ void setup() {
   radio.begin(); // init of the NRF24
   // The amplifier gain can be set to RF24_PA_MIN=-18dBm, RF24_PA_LOW=-12dBm, RF24_PA_MED=-6dBM, and RF24_PA_MAX=0dBm.
   radio.setPALevel(RF24_PA_MAX); // transmitter gain value (see above)
+  radio.printDetails();
   network.begin( 1, this_node ); // fixed radio channel, node ID
   Serial.print(F("UID: "));
   Serial.print(F("(undefined)\n"));
@@ -187,8 +199,8 @@ void setup() {
 #endif
 
   // verify connection
-  Serial.println(F("testing I2C device connections..."));
-  Serial.println(mpu.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
+  Serial.println(F("Init I2C..."));
+  Serial.println(mpu.testConnection() ? "MPU6050 connected." : "MPU6050 error.");
   mpu.setDLPFMode(2); // 2 = 100Hz, 6 = 5Hz low pass
   mpu.setDHPFMode(4); // 0.625Hz high pass for motion detection
   mpu.setFullScaleAccelRange(0); //
@@ -243,16 +255,17 @@ void setup() {
 
 void mode(byte _mode) {
   if (_mode == 0) {
+    Serial.println(F("mode(0)"));
     radio.powerDown();
     mpu.setSleepEnabled(1);
-    int _j = 18;
-    for (int _i = 1; _i < _j; _i++) {
-      pinMode(9, INPUT);
-      delay(768 / _i);
-      pinMode(9, OUTPUT);
-      digitalWrite(9, LOW);
+    vibr(1);
+    delay(256);
+    int _j = 3;
+    for (int _i = 0; _i < _j; _i++) {
+      vibr(1);
       delay(128);
-      delay(64 * _i);
+      vibr(0);
+      delay(256);
     }
     setup_watchdog(wdt_8s);
     while (1) do_sleep(); // sleep forever
@@ -260,92 +273,10 @@ void mode(byte _mode) {
 }
 
 void loop() {
+//  mode(0);
   wilssen();
-  mode(0);
-  radio.powerDown();
-  Serial.print(F("MotionDetectionDuration: "));
-  Serial.print(mpu.getMotionDetectionDuration());
-  Serial.print(F("\t Threshold: "));
-  Serial.print(mpu.getMotionDetectionThreshold());
-  Serial.print(F("\t gyroRange: "));
-  Serial.print(mpu.getFullScaleGyroRange());
-  Serial.print(F("\t getClockSource: "));
-  Serial.print(mpu.getClockSource());
-  Serial.print(F("\n"));
-  Serial.print(F("Radio down.\n"));
-  delay(1000);
-
-  Serial.print(F("+MCU into sleep mode for 10s.\n"));
-  delay(50);
-  while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
-  sleep_cycles_remaining = sleep_cycles_per_transmission;
-
-  Serial.print(F("+Xgyro now sleeping for 10s.\n"));
-  mpu.setStandbyXGyroEnabled(1);
-  delay(50);
-  while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
-  sleep_cycles_remaining = sleep_cycles_per_transmission;
-
-  Serial.print(F("+Ygyro now sleeping for 10s.\n"));
-  mpu.setStandbyYGyroEnabled(1);
-  delay(50);
-  while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
-  sleep_cycles_remaining = sleep_cycles_per_transmission;
-
-  Serial.print(F("+Zgyro now sleeping for 10s.\n"));
-  mpu.setStandbyZGyroEnabled(1);
-  delay(50);
-  while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
-  sleep_cycles_remaining = sleep_cycles_per_transmission;
-
-  Serial.print(F("+setSleepEnabled(1) for 10s.\n"));
-  mpu.setSleepEnabled(1);
-  delay(50);
-  while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
-  sleep_cycles_remaining = sleep_cycles_per_transmission;
-
-  Serial.print(F("MCU now sleeping for 10s with power to radio cut off.\n"));
-  delay(127);
-  while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
-  Serial.print(F("MCU awake. 1s delay to radio powerup.\n"));
-  digitalWrite(8, HIGH);
-  digitalWrite(7, HIGH);
-  delay(1000);
-  mpu.setSleepEnabled(0);
-  radio.powerUp();
-  Serial.print(F("Radio up.\n"));
-  sleep_cycles_remaining = sleep_cycles_per_transmission;
-}
-
-// 0=16ms, 1=32ms,2=64ms,3=125ms,4=250ms,5=500ms
-// 6=1 sec,7=2 sec, 8=4 sec, 9= 8sec
-void setup_watchdog(uint8_t prescalar)
-{
-  prescalar = min(9, prescalar);
-  uint8_t wdtcsr = prescalar & 7;
-  if ( prescalar & 8 )
-    wdtcsr |= _BV(WDP3);
-  MCUSR &= ~_BV(WDRF);
-  WDTCSR = _BV(WDCE) | _BV(WDE);
-  WDTCSR = _BV(WDCE) | wdtcsr | _BV(WDIE);
-}
-
-ISR(WDT_vect)
-{
-  --sleep_cycles_remaining;
-}
-
-void do_sleep(void)
-{
-  set_sleep_mode(SLEEP_MODE_PWR_DOWN); // sleep mode is set here
-  sleep_enable();
-  sleep_mode();                        // System sleeps here
-  sleep_disable();                     // System continues execution here when watchdog timed out
-}
-
-
-void wilssen() {
   network.update();
+  send_K(01);
   updates++;
   while ( network.available() ) // while there are packets in the FIFO buffer
   {
@@ -428,6 +359,98 @@ void wilssen() {
       }
     }
   }
+ 
+  /*  
+  long csVal = cs.capacitiveSensor(30);
+  Serial.println(csVal);
+  delay(50);
+  */
+  /*
+  radio.powerDown();
+  Serial.print(F("MotionDetectionDuration: "));
+  Serial.print(mpu.getMotionDetectionDuration());
+  Serial.print(F("\t Threshold: "));
+  Serial.print(mpu.getMotionDetectionThreshold());
+  Serial.print(F("\t gyroRange: "));
+  Serial.print(mpu.getFullScaleGyroRange());
+  Serial.print(F("\t getClockSource: "));
+  Serial.print(mpu.getClockSource());
+  Serial.print(F("\n"));
+  Serial.print(F("Radio down.\n"));
+  delay(1000);
+
+  Serial.print(F("+MCU into sleep mode for 10s.\n"));
+  delay(50);
+  while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
+  sleep_cycles_remaining = sleep_cycles_per_transmission;
+
+  Serial.print(F("+Xgyro now sleeping for 10s.\n"));
+  mpu.setStandbyXGyroEnabled(1);
+  delay(50);
+  while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
+  sleep_cycles_remaining = sleep_cycles_per_transmission;
+
+  Serial.print(F("+Ygyro now sleeping for 10s.\n"));
+  mpu.setStandbyYGyroEnabled(1);
+  delay(50);
+  while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
+  sleep_cycles_remaining = sleep_cycles_per_transmission;
+
+  Serial.print(F("+Zgyro now sleeping for 10s.\n"));
+  mpu.setStandbyZGyroEnabled(1);
+  delay(50);
+  while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
+  sleep_cycles_remaining = sleep_cycles_per_transmission;
+
+  Serial.print(F("+setSleepEnabled(1) for 10s.\n"));
+  mpu.setSleepEnabled(1);
+  delay(50);
+  while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
+  sleep_cycles_remaining = sleep_cycles_per_transmission;
+
+  Serial.print(F("MCU now sleeping for 10s with power to radio cut off.\n"));
+  delay(127);
+  while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
+  Serial.print(F("MCU awake. 1s delay to radio powerup.\n"));
+  digitalWrite(8, HIGH);
+  digitalWrite(7, HIGH);
+  delay(1000);
+  mpu.setSleepEnabled(0);
+  radio.powerUp();
+  Serial.print(F("Radio up.\n"));
+  sleep_cycles_remaining = sleep_cycles_per_transmission;
+  */
+}
+
+// 0=16ms, 1=32ms,2=64ms,3=125ms,4=250ms,5=500ms
+// 6=1 sec,7=2 sec, 8=4 sec, 9= 8sec
+void setup_watchdog(uint8_t prescalar)
+{
+  prescalar = min(9, prescalar);
+  uint8_t wdtcsr = prescalar & 7;
+  if ( prescalar & 8 )
+    wdtcsr |= _BV(WDP3);
+  MCUSR &= ~_BV(WDRF);
+  WDTCSR = _BV(WDCE) | _BV(WDE);
+  WDTCSR = _BV(WDCE) | wdtcsr | _BV(WDIE);
+}
+
+ISR(WDT_vect)
+{
+  --sleep_cycles_remaining;
+}
+
+void do_sleep(void)
+{
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN); // sleep mode is set here
+  sleep_enable();
+  sleep_mode();                        // System sleeps here
+  sleep_disable();                     // System continues execution here when watchdog timed out
+}
+
+
+void wilssen() {
+
 }
 
 // Arduino version of the printf()-funcition in C
