@@ -139,7 +139,7 @@ void send_L1(int to, int _b = 0){
       0,0,_b,
       0,0,_b,
       0,0,_b,
-      0,(((byte) millis()&0xFF)/5),_b        };
+      0,(((byte) millis()&0xFF)/10),_b        };
 
     unsigned long now = millis();
     bool ok = send_L(to, ledmap);

@@ -25,7 +25,7 @@ __asm volatile ("nop");
 #define LEDPIN 6
 #define KEEPALIVE 0 // keep connections alive with regular polling to node 0
 #define USE_LEDS // LED stripe used
-//#define USE_TOUCH // capacitive touch sensing
+#define USE_TOUCH // capacitive touch sensing
 
 #ifdef USE_LEDS
 #include <Adafruit_NeoPixel.h>
@@ -39,7 +39,7 @@ CapacitiveSensor cs = CapacitiveSensor(8,7);        // capacitive sensing at pin
 #endif
 
 const unsigned long interval_filter = 10;
-const unsigned long interval = 100; // KEEPALIVE interval in [ms]
+const unsigned long interval = 10000; // KEEPALIVE interval in [ms]
 unsigned long last_time_filtered;
 byte sweep = 0;
 byte nodeID = 1; // Unique Node Identifier (2...254) - also the last byte of the IPv4 adress, not used if USE_EEPROM is set
@@ -185,7 +185,12 @@ void setup() {
   radio.begin(); // init of the NRF24
   // The amplifier gain can be set to RF24_PA_MIN=-18dBm, RF24_PA_LOW=-12dBm, RF24_PA_MED=-6dBM, and RF24_PA_MAX=0dBm.
   radio.setPALevel(RF24_PA_MAX); // transmitter gain value (see above)
-  radio.printDetails();
+  Serial.print(F("PA-level: "));
+  Serial.print(radio.getPALevel());
+  Serial.print(F("\t CRC: "));
+  Serial.print(radio.getCRCLength());
+  Serial.print(F("\t datarate: "));
+  Serial.println(radio.getDataRate());
   network.begin( 1, this_node ); // fixed radio channel, node ID
   Serial.print(F("UID: "));
   Serial.print(F("(undefined)\n"));
@@ -251,6 +256,7 @@ void setup() {
   ledst(1);
 #endif
   setup_watchdog(wdt_1s); // Set the watchdog timer interval
+  radio.powerUp();
 }
 
 void mode(byte _mode) {
@@ -273,10 +279,18 @@ void mode(byte _mode) {
 }
 
 void loop() {
-//  mode(0);
+  mode(0);
   wilssen();
   network.update();
-  send_K(01);
+  #ifdef USE_TOUCH 
+    long csVal = cs.capacitiveSensor(42);
+    Serial.println(csVal);
+    byte _val=min(csVal,255);
+    vibr(0);
+    if(_val>50) vibr(1);
+    //send_L1(01,_val);
+    delay(64);
+  #endif
   updates++;
   while ( network.available() ) // while there are packets in the FIFO buffer
   {
@@ -310,6 +324,7 @@ void loop() {
     };
     ledst(); // reset the status LED to the default pattern
   }
+  
   unsigned long now = millis();
   unsigned long nowM = micros();
   if ( now - last_time_filtered >= interval_filter ) { // non-blocking check for start of debug service routine interval
@@ -355,15 +370,13 @@ void loop() {
     strobe = !strobe;
     if ( this_node == 00) {
       for (short _i = 0; _i < num_active_nodes; _i++) {
-        send_K(active_nodes[_i]);
+        //send_K(active_nodes[_i]);
       }
     }
   }
  
   /*  
-  long csVal = cs.capacitiveSensor(30);
-  Serial.println(csVal);
-  delay(50);
+
   */
   /*
   radio.powerDown();
