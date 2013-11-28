@@ -1,4 +1,3 @@
-
 void ledst(int sta){
   #ifdef USE_LEDS
   uint32_t c=0;
@@ -76,9 +75,11 @@ byte pat1[]={
   5,16,5};
 
 void colorWipe(uint32_t c, uint8_t wait) { //this is blocking with the hardcoded delay...
+  #ifdef USE_LED
   for(uint16_t i=0; i<leds.numPixels(); i++) {
     leds.setPixelColor(i, c);
     leds.show();
     delay(wait);
   }
+  #endif
 }

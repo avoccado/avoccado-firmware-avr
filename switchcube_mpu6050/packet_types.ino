@@ -1,4 +1,3 @@
-
 /* WIP DRAFT, TBD
  C voltage (1-24 bytes) fixed point values
  D current (1-24 bytes) fixed point values
@@ -13,9 +12,9 @@
  */
 byte br=50; // global brightness setting
 byte _r,_g,_b,_c1,_c2,_c3=50;
-const int PROGMEM breakpoint = 64;
+const int PROGMEM breakpoint = 32;
 void send_K(unsigned int to){
-  //mpucheck();
+  mpucheck();
   mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
 //  unsigned int _br= (unsigned int) angle_z * 728 / 256 // brightness determined by the z_rotation
 
@@ -247,4 +246,32 @@ void handle_B(RF24NetworkHeader& header)
     p("%010ld: Recv 'B' from %05o -> %ldus round trip\n", millis(), header.from_node, micros()-ref_time);
   }
 }
-
+void processPacket(){
+    ledst(3); // light up status LED with pattern #3
+    RF24NetworkHeader header; // initialize header
+    network.peek(header); // preview the header, but don't advance nor flush the packet
+    switch (header.type) // check which packet type we received
+    {
+      case 'K':
+        handle_K(header);
+        break;
+      case 'L':
+        handle_L(header);
+        break;
+      case 'T':
+        handle_T(header);
+        break;
+      case 'B':
+        handle_B(header);
+        break;
+      default:
+        network.read(header, 0, 0); // if none of the above packet types matched, read out and flush the buffer
+        if (DEBUG) {
+          Serial.print(F("undefined packet type: ")); // print the unrecognized packet type
+          Serial.print(header.type);
+          Serial.println();
+        }
+        break;
+    };
+    ledst(); // reset the status LED to the default pattern
+}

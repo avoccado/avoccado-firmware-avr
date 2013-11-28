@@ -1,4 +1,26 @@
 #if 1 // BOF preprocessor bug workaround
+#include "Arduino.h"
+inline unsigned long get_last_time();
+inline float get_last_x_angle();
+inline float get_last_y_angle();
+inline float get_last_z_angle();
+inline float get_last_gyro_x_angle();
+inline float get_last_gyro_y_angle();
+inline float get_last_gyro_z_angle();
+void setup();
+void active();
+void loop();
+void wilssen();
+unsigned long microsRollover();
+void ledst(int sta);
+void colorWipe(uint32_t c, uint8_t wait);
+void set_last_read_angle_data(unsigned long time, float x, float y, float z, float x_gyro, float y_gyro, float z_gyro);
+void calibrate_sensors();
+void getangle();
+void send_K(unsigned int to);
+boolean send_L(uint16_t to, byte* ledmap);
+void processPacket();
+#line 2
 __asm volatile ("nop");
 #endif
 
@@ -41,8 +63,8 @@ RF24Network network(radio); // mesh network layer
 CapacitiveSensor cs = CapacitiveSensor(8, 7);       // capacitive sensing at pins 7 and 8
 #endif
 
-const unsigned long interval_filter = 10;
-const unsigned long interval = 5000; // KEEPALIVE interval in [ms]
+const unsigned long interval_filter = 32;
+const unsigned long interval = 10; // KEEPALIVE interval in [ms]
 unsigned long last_time_filtered;
 byte sweep = 0;
 byte nodeID = 1; // Unique Node Identifier (2...254) - also the last byte of the IPv4 adress, not used if USE_EEPROM is set
@@ -284,42 +306,14 @@ lastActive=millis();
 
 void loop() {
   if (millis()-lastActive> TIMEOUT_HIBERNATE) powerMode(5);
-  if (millis()-lastActive> TIMEOUT_MEMS) mpu.setSleepEnabled(1);
-  if (millis()-lastActive> TIMEOUT_RADIO) radio.powerDown();
+//  if (millis()-lastActive> TIMEOUT_MEMS) mpu.setSleepEnabled(1);
+//  if (millis()-lastActive> TIMEOUT_RADIO) radio.powerDown();
   wilssen();
   network.update();
   updates++;
   while ( network.available() ) // while there are packets in the FIFO buffer
   {
-#ifdef USE_LEDS
-    ledst(3); // light up status LED with pattern #3
-#endif
-    RF24NetworkHeader header; // initialize header
-    network.peek(header); // preview the header, but don't advance nor flush the packet
-    switch (header.type) // check which packet type we received
-    {
-      case 'K':
-        handle_K(header);
-        break;
-      case 'L':
-        handle_L(header);
-        break;
-      case 'T':
-        handle_T(header);
-        break;
-      case 'B':
-        handle_B(header);
-        break;
-      default:
-        network.read(header, 0, 0); // if none of the above packet types matched, read out and flush the buffer
-        if (DEBUG) {
-          Serial.print(F("            undefined packet type: ")); // print the unrecognized packet type
-          Serial.print(header.type);
-          Serial.println();
-        }
-        break;
-    };
-    ledst(); // reset the status LED to the default pattern
+    processPacket();
   }
 
   unsigned long now = millis();
@@ -367,7 +361,7 @@ void loop() {
     strobe = !strobe;
     if ( this_node == 00) {
       for (short _i = 0; _i < num_active_nodes; _i++) {
-        //send_K(active_nodes[_i]);
+        send_K(active_nodes[_i]);
       }
     }
   }
@@ -509,6 +503,3 @@ unsigned long microsRollover() { //based on Rob Faludi's (rob.faludi.com) milli 
   }
   return microRollovers;
 }
-
-
-

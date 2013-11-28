@@ -1,4 +1,4 @@
-void vibr(byte _state=0) {
+void vibr(byte _state = 0) {
   if (_state == 1) {
     pinMode(9, INPUT); // vibration motor
   }

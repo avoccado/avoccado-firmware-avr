@@ -1,5 +1,3 @@
-
-
 void set_last_read_angle_data(unsigned long time, float x, float y, float z, float x_gyro, float y_gyro, float z_gyro) {
   last_read_time = time;
   last_x_angle = x;
