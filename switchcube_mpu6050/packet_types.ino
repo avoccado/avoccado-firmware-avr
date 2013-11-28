@@ -14,6 +14,7 @@ byte br=50; // global brightness setting
 byte _r,_g,_b,_c1,_c2,_c3=50;
 const int PROGMEM breakpoint = 32;
 void send_K(unsigned int to){
+  unsigned int GMAX = 32000;
   mpucheck();
   mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
 //  unsigned int _br= (unsigned int) angle_z * 728 / 256 // brightness determined by the z_rotation
@@ -22,12 +23,15 @@ if ( ay>(+15000) ) {
   Serial.println(F("RIGHT"));
   int _cd= abs(gy)-breakpoint; // threshhold for movement detection and against gyro drift
   _cd=(max(_cd,breakpoint))-breakpoint;
-  _cd=map(_cd,0,8164,0,255);
+  _cd=map(_cd,0,GMAX,0,255);
   if (gy>0) {
-    if (((int)_c1-_cd)<0) {_c1=0;} else {_c1-=_cd;}
+    if (((int)_c1-_cd)<0) {
+    _c1=0;
+    vibr(2);
+  } else {_c1-=_cd;}
   }
   if (gy<=0) {
-    if (((int)_c1+_cd)>255) {_c1=255;} else {_c1+=_cd;}
+    if (((int)_c1+_cd)>255) {_c1=255; vibr(2);} else {_c1+=_cd;}
   }
  }
 
@@ -35,12 +39,12 @@ if ( ay<(-15000) ) {
   Serial.println(F("LEFT"));
   int _cd= abs(gy)-breakpoint; // threshhold for movement detection and against gyro drift
   _cd=(max(_cd,breakpoint))-breakpoint;
-  _cd=map(_cd,0,8164,0,255);
+  _cd=map(_cd,0,GMAX,0,255);
   if (gy<=0) {
-    if (((int)_c2-_cd)<0) {_c2=0;} else {_c2-=_cd;}
+    if (((int)_c2-_cd)<0) {_c2=0;vibr(2);} else {_c2-=_cd;}
   }
   if (gy>0) {
-    if (((int)_c2+_cd)>255) {_c2=255;} else {_c2+=_cd;}
+    if (((int)_c2+_cd)>255) {_c2=255;vibr(2);} else {_c2+=_cd;}
   }
  }
 
@@ -48,12 +52,12 @@ if ( ax>(+15000) ) {
   Serial.println(F("BACK"));
   int _cd= abs(gx)-breakpoint; 
   _cd=(max(_cd,breakpoint))-breakpoint;
-  _cd=map(_cd,0,8164,0,255);
+  _cd=map(_cd,0,GMAX,0,255);
   if (gx>0) {
-    if (((int)_c3-_cd)<0) {_c3=0;} else {_c3-=_cd;}
+    if (((int)_c3-_cd)<0) {_c3=0;vibr(2);} else {_c3-=_cd;}
   }
   if (gx<=0) {
-    if (((int)_c3+_cd)>255) {_c3=255;} else {_c3+=_cd;}
+    if (((int)_c3+_cd)>255) {_c3=255;vibr(2);} else {_c3+=_cd;}
   }
  }
 
@@ -61,12 +65,12 @@ if ( az>15000 ) {
   Serial.println(F("TOP"));
   int _cd= abs(gz)-breakpoint; 
   _cd=(max(_cd,breakpoint))-breakpoint;
-  _cd=map(_cd,0,16000,0,255);
+  _cd=map(_cd,0,GMAX,0,255);
   if (gz>0) {
-    if (((int)br-_cd)<0) {br=0;} else {br-=_cd;}
+    if (((int)br-_cd)<0) {br=0;vibr(2);} else {br-=_cd;}
   }
   if (gz<=0) {
-    if (((int)br+_cd)>255) {br=255;} else {br+=_cd;}
+    if (((int)br+_cd)>255) {br=255;vibr(2);} else {br+=_cd;}
   }
  }
  

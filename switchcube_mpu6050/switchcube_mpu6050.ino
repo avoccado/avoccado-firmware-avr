@@ -42,7 +42,7 @@ __asm volatile ("nop");
 #include <stdarg.h>
 #include <EEPROM.h>
 #include <CapacitiveSensor.h>
-#define DEBUG 1 // debug mode with verbose output over serial at 115200 bps
+#define DEBUG 0 // debug mode with verbose output over serial at 115200 bps
 #define USE_EEPROM // read nodeID and network settings from EEPROM at bootup, overwrites nodeID and MAC.
 #define LEDPIN 6
 #define KEEPALIVE 0 // keep connections alive with regular polling to node 0
@@ -64,7 +64,7 @@ CapacitiveSensor cs = CapacitiveSensor(8, 7);       // capacitive sensing at pin
 #endif
 
 const unsigned long interval_filter = 32;
-const unsigned long interval = 10; // KEEPALIVE interval in [ms]
+const unsigned long interval = 50; // KEEPALIVE interval in [ms]
 unsigned long last_time_filtered;
 byte sweep = 0;
 byte nodeID = 1; // Unique Node Identifier (2...254) - also the last byte of the IPv4 adress, not used if USE_EEPROM is set
@@ -160,7 +160,7 @@ const short sleep_cycles_per_transmission = 10;
 volatile short sleep_cycles_remaining = sleep_cycles_per_transmission;
 void powerMode(byte _mode);
 void vibr(byte _state);
-bool checkTouch();
+bool checkTouch(unsigned int _sensitivity = 96);
 byte mode = 0;
 unsigned long lastActive=0;
 
@@ -286,14 +286,13 @@ void powerMode(byte _mode = mode) {
   };
 }
 
-bool checkTouch()
+bool checkTouch(unsigned int _sensitivity)
 {
 #ifdef USE_TOUCH
   long csVal = cs.capacitiveSensor(24);
-  byte _val = min(csVal, 255);
-  if (_val > 96) {
+  if (csVal > _sensitivity) {
     //send_L1(01,_val);
-    Serial.println(csVal);
+    //Serial.println(csVal);
     return 1;
   }
 #endif

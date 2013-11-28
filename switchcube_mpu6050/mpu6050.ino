@@ -13,7 +13,7 @@ void calibrate_sensors() {
   mpu.setDLPFMode(2); // 2 = 100Hz, 6 = 5Hz low pass
   mpu.setDHPFMode(4); // 0.625Hz high pass for motion detection
   mpu.setFullScaleAccelRange(0); //
-  mpu.setFullScaleGyroRange(3); // 2000deg/s
+  mpu.setFullScaleGyroRange(2); // 3 = 2000deg/s
 
   Serial.println(F("Reading/Updating internal sensor offsets..."));
   // -76	-2359	1688	0	0	0
