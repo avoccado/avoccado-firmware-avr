@@ -10,9 +10,53 @@ void set_last_read_angle_data(unsigned long time, float x, float y, float z, flo
   last_gyro_z_angle = z_gyro;
 }
 
-
 // The sensor should be motionless on a horizontal surface while calibration is happening
 void calibrate_sensors() {
+  mpu.setDLPFMode(2); // 2 = 100Hz, 6 = 5Hz low pass
+  mpu.setDHPFMode(4); // 0.625Hz high pass for motion detection
+  mpu.setFullScaleAccelRange(0); //
+  mpu.setFullScaleGyroRange(3); // 2000deg/s
+
+  Serial.println(F("Reading/Updating internal sensor offsets..."));
+  // -76	-2359	1688	0	0	0
+  //-596	-585	664	0	0	0
+  //-2648	823	808	-10	9	68	switchcube alpha 2
+  Serial.print(mpu.getXAccelOffset());
+  Serial.print(F("\t")); // -76
+  Serial.print(mpu.getYAccelOffset());
+  Serial.print(F("\t")); // -2359
+  Serial.print(mpu.getZAccelOffset());
+  Serial.print(F("\t")); // 1688
+  Serial.print(mpu.getXGyroOffset());
+  Serial.print(F("\t")); // 0
+  Serial.print(mpu.getYGyroOffset());
+  Serial.print(F("\t")); // 0
+  Serial.print(mpu.getZGyroOffset());
+  Serial.print(F("\t")); // 0
+  Serial.print(F("\n"));
+  // -596	-585	664
+  // change accel/gyro offset values
+  mpu.setXGyroOffset(-10);
+  mpu.setYGyroOffset(9);
+  mpu.setZGyroOffset(68);
+
+  Serial.print(mpu.getXAccelOffset());
+  Serial.print(F("\t")); // -76
+  Serial.print(mpu.getYAccelOffset());
+  Serial.print(F("\t")); // -2359
+  Serial.print(mpu.getZAccelOffset());
+  Serial.print(F("\t")); // 1688
+  Serial.print(mpu.getXGyroOffset());
+  Serial.print(F("\t")); // 0
+  Serial.print(mpu.getYGyroOffset());
+  Serial.print(F("\t")); // 0
+  Serial.print(mpu.getZGyroOffset());
+  Serial.print(F("\t")); // 0
+  Serial.print(F("\n"));
+  
+  
+  ////////////////////////////
+  
   int                   num_readings = 10; // 10 times 100ms = 1sec
   float                 x_accel = 0;
   float                 y_accel = 0;

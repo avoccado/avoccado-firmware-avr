@@ -26,6 +26,9 @@ __asm volatile ("nop");
 #define KEEPALIVE 0 // keep connections alive with regular polling to node 0
 #define USE_LEDS // LED stripe used
 #define USE_TOUCH // capacitive touch sensing
+#define TIMEOUT_HIBERNATE 16000
+#define TIMEOUT_MEMS 5000
+#define TIMEOUT_RADIO 8000
 
 #ifdef USE_LEDS
 #include <Adafruit_NeoPixel.h>
@@ -35,11 +38,11 @@ RF24 radio(A0, 10); // CE, CS. CE at pin A0, CSN at pin 10
 RF24Network network(radio); // mesh network layer
 
 #ifdef USE_TOUCH
-CapacitiveSensor cs = CapacitiveSensor(8,7);        // capacitive sensing at pins 7 and 8
+CapacitiveSensor cs = CapacitiveSensor(8, 7);       // capacitive sensing at pins 7 and 8
 #endif
 
 const unsigned long interval_filter = 10;
-const unsigned long interval = 10000; // KEEPALIVE interval in [ms]
+const unsigned long interval = 5000; // KEEPALIVE interval in [ms]
 unsigned long last_time_filtered;
 byte sweep = 0;
 byte nodeID = 1; // Unique Node Identifier (2...254) - also the last byte of the IPv4 adress, not used if USE_EEPROM is set
@@ -133,16 +136,19 @@ void setup_watchdog(uint8_t prescalar);
 void do_sleep(void);
 const short sleep_cycles_per_transmission = 10;
 volatile short sleep_cycles_remaining = sleep_cycles_per_transmission;
-void mode(byte _mode);
+void powerMode(byte _mode);
 void vibr(byte _state);
+bool checkTouch();
+byte mode = 0;
+unsigned long lastActive=0;
 
 void setup() {
-// ONLY for C3POW prototype 2:
-/*  pinMode(7,OUTPUT);
-  digitalWrite(7, HIGH); // Vcc for MPU6050
-  pinMode(8, OUTPUT); // Vcc for the NRF24 module, 3.5-5V output to an LDO supplying 3.3V
-  digitalWrite(8, HIGH); // Vcc for the NRF24 module activated. Shutdown with LOW.
-  */
+  // ONLY for C3POW prototype 2:
+  /*  pinMode(7,OUTPUT);
+    digitalWrite(7, HIGH); // Vcc for MPU6050
+    pinMode(8, OUTPUT); // Vcc for the NRF24 module, 3.5-5V output to an LDO supplying 3.3V
+    digitalWrite(8, HIGH); // Vcc for the NRF24 module activated. Shutdown with LOW.
+    */
 
   vibr(0); // pull low and disable motor for now
 #ifdef USE_LEDS
@@ -150,9 +156,9 @@ void setup() {
   leds.show(); // Initialize all pixels to 'off'
   ledst(5); // set initial status to 5, ledst() sets the first
 #endif
-  #ifdef USE_TOUCH
+#ifdef USE_TOUCH
   cs.set_CS_AutocaL_Millis(64000);
-  #endif
+#endif
   Serial.begin(115200); // initialize serial communication
   delay(64);
   // initialize devices
@@ -206,50 +212,6 @@ void setup() {
   // verify connection
   Serial.println(F("Init I2C..."));
   Serial.println(mpu.testConnection() ? "MPU6050 connected." : "MPU6050 error.");
-  mpu.setDLPFMode(2); // 2 = 100Hz, 6 = 5Hz low pass
-  mpu.setDHPFMode(4); // 0.625Hz high pass for motion detection
-  mpu.setFullScaleAccelRange(0); //
-  mpu.setFullScaleGyroRange(3); // 2000deg/s
-  //    Wire.write(0x16);            // register DLPF_CFG - low pass filter configuration & sample rate
-  //    Wire.write(0x1D);            //   10Hz Low Pass Filter Bandwidth - Internal Sample Rate 1kHz
-
-  Serial.println(F("Reading/Updating internal sensor offsets..."));
-  // -76	-2359	1688	0	0	0
-  //-596	-585	664	0	0	0
-  //-2648	823	808	-10	9	68	switchcube alpha 2
-  Serial.print(mpu.getXAccelOffset());
-  Serial.print(F("\t")); // -76
-  Serial.print(mpu.getYAccelOffset());
-  Serial.print(F("\t")); // -2359
-  Serial.print(mpu.getZAccelOffset());
-  Serial.print(F("\t")); // 1688
-  Serial.print(mpu.getXGyroOffset());
-  Serial.print(F("\t")); // 0
-  Serial.print(mpu.getYGyroOffset());
-  Serial.print(F("\t")); // 0
-  Serial.print(mpu.getZGyroOffset());
-  Serial.print(F("\t")); // 0
-  Serial.print(F("\n"));
-  // -596	-585	664
-  // change accel/gyro offset values
-  mpu.setXGyroOffset(-10);
-  mpu.setYGyroOffset(9);
-  mpu.setZGyroOffset(68);
-
-  Serial.print(mpu.getXAccelOffset());
-  Serial.print(F("\t")); // -76
-  Serial.print(mpu.getYAccelOffset());
-  Serial.print(F("\t")); // -2359
-  Serial.print(mpu.getZAccelOffset());
-  Serial.print(F("\t")); // 1688
-  Serial.print(mpu.getXGyroOffset());
-  Serial.print(F("\t")); // 0
-  Serial.print(mpu.getYGyroOffset());
-  Serial.print(F("\t")); // 0
-  Serial.print(mpu.getZGyroOffset());
-  Serial.print(F("\t")); // 0
-  Serial.print(F("\n"));
-
   calibrate_sensors();
   set_last_read_angle_data(millis(), 0, 0, 0, 0, 0, 0);
 #ifdef USE_LEDS
@@ -259,38 +221,73 @@ void setup() {
   radio.powerUp();
 }
 
-void mode(byte _mode) {
-  if (_mode == 0) {
-    Serial.println(F("mode(0)"));
-    radio.powerDown();
-    mpu.setSleepEnabled(1);
-    vibr(1);
-    delay(256);
-    int _j = 3;
-    for (int _i = 0; _i < _j; _i++) {
+void powerMode(byte _mode = mode) {
+  switch (_mode) // check which power mode should be set active
+  {
+    case 0:
+      break; // no change in power mode
+    case 1:
+      mpu.setSleepEnabled(0); // activate the MEMS device
+      Serial.println(F("powerMode(1), MEMS up"));
+      mode = 0;
+      break;
+    case 2:
+      radio.powerUp(); // activate the radio
+      Serial.println(F("powerMode(2), radio up"));      
+      mode = 0;
+      break;
+    case 5:
+      Serial.println(F("powerMode(5), hibernate"));
+      radio.powerDown();
+      mpu.setSleepEnabled(1);
+      vibr(1);
+      delay(64);
+      vibr(0);
+      delay(196);
+      vibr(1);
+      delay(64);
+      vibr(0);
+      setup_watchdog(wdt_1s); // set touch check interval
+      while (!checkTouch()) do_sleep(); // sleep and check for a touch periodically
+      for (int _i = 0; _i < 2; _i++) {
       vibr(1);
       delay(128);
       vibr(0);
-      delay(256);
-    }
-    setup_watchdog(wdt_8s);
-    while (1) do_sleep(); // sleep forever
+      delay(56);
+      }
+      powerMode(1); // power up MEMS
+      powerMode(2); // power up radio
+      active();
+      break;
+    default: // no change in power mode
+      return;
+  };
+}
+
+bool checkTouch()
+{
+#ifdef USE_TOUCH
+  long csVal = cs.capacitiveSensor(24);
+  byte _val = min(csVal, 255);
+  if (_val > 96) {
+    //send_L1(01,_val);
+    Serial.println(csVal);
+    return 1;
   }
+#endif
+  return 0;
+}
+
+void active(){
+lastActive=millis();
 }
 
 void loop() {
-  mode(0);
+  if (millis()-lastActive> TIMEOUT_HIBERNATE) powerMode(5);
+  if (millis()-lastActive> TIMEOUT_MEMS) mpu.setSleepEnabled(1);
+  if (millis()-lastActive> TIMEOUT_RADIO) radio.powerDown();
   wilssen();
   network.update();
-  #ifdef USE_TOUCH 
-    long csVal = cs.capacitiveSensor(42);
-    Serial.println(csVal);
-    byte _val=min(csVal,255);
-    vibr(0);
-    if(_val>50) vibr(1);
-    //send_L1(01,_val);
-    delay(64);
-  #endif
   updates++;
   while ( network.available() ) // while there are packets in the FIFO buffer
   {
@@ -324,7 +321,7 @@ void loop() {
     };
     ledst(); // reset the status LED to the default pattern
   }
-  
+
   unsigned long now = millis();
   unsigned long nowM = micros();
   if ( now - last_time_filtered >= interval_filter ) { // non-blocking check for start of debug service routine interval
@@ -374,8 +371,8 @@ void loop() {
       }
     }
   }
- 
-  /*  
+
+  /*
 
   */
   /*
