@@ -14,6 +14,7 @@ byte br=50; // global brightness setting
 byte _r,_g,_b,_c1,_c2,_c3=50;
 const int PROGMEM breakpoint = 32;
 void send_K(unsigned int to){
+  byte _actions=0;
   unsigned int GMAX = 32000;
   mpucheck();
   mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
@@ -28,24 +29,21 @@ if ( ay>(+15000) ) {
     if (((int)_c1-_cd)<0) {
     _c1=0;
     vibr(2);
+    _actions++;
   } else {_c1-=_cd;}
   }
   if (gy<=0) {
-    if (((int)_c1+_cd)>255) {_c1=255; vibr(2);} else {_c1+=_cd;}
+    if (((int)_c1+_cd)>255) {_c1=255; vibr(2);_actions++;} else {_c1+=_cd;}
   }
  }
 
-if ( ay<(-15000) ) {
+if ( ay<(-15000) ) { // switchcube prototype 3 = top
   Serial.println(F("LEFT"));
-  int _cd= abs(gy)-breakpoint; // threshhold for movement detection and against gyro drift
-  _cd=(max(_cd,breakpoint))-breakpoint;
-  _cd=map(_cd,0,GMAX,0,255);
-  if (gy<=0) {
-    if (((int)_c2-_cd)<0) {_c2=0;vibr(2);} else {_c2-=_cd;}
-  }
-  if (gy>0) {
-    if (((int)_c2+_cd)>255) {_c2=255;vibr(2);} else {_c2+=_cd;}
-  }
+   long _csVal = cs.capacitiveSensor(32);
+   Serial.println(_csVal);
+   _csVal=min(_csVal,2048);
+   br=map(_csVal,10,2048,5,255);
+   if (_csVal > 512) _actions++;
  }
 
 if ( ax>(+15000) ) {
@@ -54,10 +52,23 @@ if ( ax>(+15000) ) {
   _cd=(max(_cd,breakpoint))-breakpoint;
   _cd=map(_cd,0,GMAX,0,255);
   if (gx>0) {
-    if (((int)_c3-_cd)<0) {_c3=0;vibr(2);} else {_c3-=_cd;}
+    if (((int)_c3-_cd)<0) {_c3=0;vibr(2);_actions++;} else {_c3-=_cd;}
   }
   if (gx<=0) {
-    if (((int)_c3+_cd)>255) {_c3=255;vibr(2);} else {_c3+=_cd;}
+    if (((int)_c3+_cd)>255) {_c3=255;vibr(2);_actions++;} else {_c3+=_cd;}
+  }
+ }
+
+if ( ax<(-15000) ) {
+  Serial.println(F("FRONT"));
+  int _cd= abs(gx)-breakpoint; 
+  _cd=(max(_cd,breakpoint))-breakpoint;
+  _cd=map(_cd,0,GMAX,0,255);
+  if (gx>0) {
+    if (((int)_c2+_cd)>255) {_c2=255;vibr(2);_actions++;} else {_c2+=_cd;}
+  }
+  if (gx<=0) {
+    if (((int)_c2-_cd)<0) {_c2=0;vibr(2);_actions++;} else {_c2-=_cd;}
   }
  }
 
@@ -67,10 +78,10 @@ if ( az>15000 ) {
   _cd=(max(_cd,breakpoint))-breakpoint;
   _cd=map(_cd,0,GMAX,0,255);
   if (gz>0) {
-    if (((int)br-_cd)<0) {br=0;vibr(2);} else {br-=_cd;}
+    if (((int)br-_cd)<0) {br=0;vibr(2);_actions++;} else {br-=_cd;}
   }
   if (gz<=0) {
-    if (((int)br+_cd)>255) {br=255;vibr(2);} else {br+=_cd;}
+    if (((int)br+_cd)>255) {br=255;vibr(2);_actions++;} else {br+=_cd;}
   }
  }
  
@@ -79,7 +90,12 @@ if ( az>15000 ) {
   
   if (strobe) br=255;
   if (!strobe) br=0;
+  _actions++;
  }
+ Serial.println(F("ACT"));
+ Serial.println(_actions,DEC);
+ Serial.println(F("ACT"));
+ if (_actions>0) active();
  
 if ( (abs(angle_x)<10) & (abs(angle_y)<10) ) {
   }

@@ -179,12 +179,12 @@ void setup() {
   ledst(5); // set initial status to 5, ledst() sets the first
 #endif
 #ifdef USE_TOUCH
-  cs.set_CS_AutocaL_Millis(64000);
+  cs.set_CS_AutocaL_Millis(50000);
 #endif
   Serial.begin(115200); // initialize serial communication
   delay(64);
   // initialize devices
-  Serial.println(F("C3POW 0.20131127"));
+  Serial.println(F("C3POW 0.201311281858"));
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
   Serial.println(F("I2CSetup"));
   Wire.begin(); // join I2C bus (I2Cdev library doesn't do this automatically)
