@@ -48,7 +48,7 @@ __asm volatile ("nop");
 #define KEEPALIVE 0 // keep connections alive with regular polling to node 0
 #define USE_LEDS // LED stripe used
 #define USE_TOUCH // capacitive touch sensing
-#define TIMEOUT_HIBERNATE 16000
+#define TIMEOUT_HIBERNATE 5000
 #define TIMEOUT_MEMS 5000
 #define TIMEOUT_RADIO 8000
 
@@ -162,7 +162,7 @@ void powerMode(byte _mode);
 void vibr(byte _state);
 bool checkTouch(unsigned int _sensitivity = 96);
 byte mode = 0;
-unsigned long lastActive=0;
+unsigned long lastActive = 0;
 
 void setup() {
   // ONLY for C3POW prototype 2:
@@ -179,12 +179,12 @@ void setup() {
   ledst(5); // set initial status to 5, ledst() sets the first
 #endif
 #ifdef USE_TOUCH
-  cs.set_CS_AutocaL_Millis(50000);
+  cs.set_CS_AutocaL_Millis(10000);
 #endif
   Serial.begin(115200); // initialize serial communication
   delay(64);
   // initialize devices
-  Serial.println(F("C3POW 0.201311281858"));
+  Serial.println(F("C3POW 0.201312201858"));
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
   Serial.println(F("I2CSetup"));
   Wire.begin(); // join I2C bus (I2Cdev library doesn't do this automatically)
@@ -255,7 +255,7 @@ void powerMode(byte _mode = mode) {
       break;
     case 2:
       radio.powerUp(); // activate the radio
-      Serial.println(F("powerMode(2), radio up"));      
+      Serial.println(F("powerMode(2), radio up"));
       mode = 0;
       break;
     case 5:
@@ -269,18 +269,39 @@ void powerMode(byte _mode = mode) {
       vibr(1);
       delay(64);
       vibr(0);
+      mpu.setStandbyXGyroEnabled(1);
+      mpu.setStandbyYGyroEnabled(1);
+      mpu.setStandbyZGyroEnabled(1);
       setup_watchdog(wdt_1s); // set touch check interval
-      while (!checkTouch()) do_sleep(); // sleep and check for a touch periodically
+      while ( ay < (-10000) ) {
+        do_sleep();
+        powerMode(1); // power up MEMS
+        //        mpucheck();
+        mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+      }
       for (int _i = 0; _i < 2; _i++) {
-      vibr(1);
-      delay(128);
-      vibr(0);
-      delay(56);
+        vibr(1);
+        delay(128);
+        vibr(0);
+        delay(56);
       }
       powerMode(1); // power up MEMS
+      mpu.setStandbyXGyroEnabled(0);
+      mpu.setStandbyYGyroEnabled(0);
+      mpu.setStandbyZGyroEnabled(0);
       powerMode(2); // power up radio
       active();
       break;
+    case 6: // shutdown until next hard reset
+      Serial.println(F("powerMode(6), shutdown"));
+      radio.powerDown();
+      mpu.setSleepEnabled(1);
+      vibr(1);
+      delay(1024);
+      vibr(0);
+      setup_watchdog(wdt_8s); // longest watchdog interval
+      while(1) do_sleep(); // sleep forever
+      break;      
     default: // no change in power mode
       return;
   };
@@ -299,14 +320,19 @@ bool checkTouch(unsigned int _sensitivity)
   return 0;
 }
 
-void active(){
-lastActive=millis();
+void active() {
+  lastActive = millis();
 }
 
 void loop() {
-  if (millis()-lastActive> TIMEOUT_HIBERNATE) powerMode(5);
-//  if (millis()-lastActive> TIMEOUT_MEMS) mpu.setSleepEnabled(1);
-//  if (millis()-lastActive> TIMEOUT_RADIO) radio.powerDown();
+  
+  /////////////////////////
+  powerMode(6); // WIP - shutdown forever, disable hardware until next hard reset
+  /////////////////////////
+  
+  if (millis() - lastActive > TIMEOUT_HIBERNATE && (ay < (-10000))) powerMode(5);
+  //  if (millis()-lastActive> TIMEOUT_MEMS) mpu.setSleepEnabled(1);
+  //  if (millis()-lastActive> TIMEOUT_RADIO) radio.powerDown();
   wilssen();
   network.update();
   updates++;

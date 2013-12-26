@@ -37,13 +37,14 @@ if ( ay>(+15000) ) {
   }
  }
 
-if ( ay<(-15000) ) { // switchcube prototype 3 = top
-  Serial.println(F("LEFT"));
-   long _csVal = cs.capacitiveSensor(32);
-   Serial.println(_csVal);
-   _csVal=min(_csVal,2048);
-   br=map(_csVal,10,2048,5,255);
-   if (_csVal > 512) _actions++;
+if ( ay<(-10000) ) { // switchcube prototype 3 = top
+  Serial.println(F("LEFT/TOP"));
+
+//   long _csVal = cs.capacitiveSensor(32);
+//   Serial.println(_csVal);
+//   _csVal=min(_csVal,2048);
+//   br=map(_csVal,10,2048,5,255);
+//   if (_csVal > 512) _actions++;
  }
 
 if ( ax>(+15000) ) {
