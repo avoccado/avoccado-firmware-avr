@@ -46,7 +46,7 @@ __asm volatile ("nop");
 #define USE_EEPROM // read nodeID and network settings from EEPROM at bootup, overwrites nodeID and MAC.
 #define LEDPIN 6
 #define KEEPALIVE 0 // keep connections alive with regular polling to node 0
-#define USE_LEDS // LED stripe used
+//#define USE_LEDS // LED stripe used
 #define USE_TOUCH // capacitive touch sensing
 #define TIMEOUT_HIBERNATE 5000
 #define TIMEOUT_MEMS 5000
