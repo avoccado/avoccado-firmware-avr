@@ -47,10 +47,11 @@ __asm volatile ("nop");
 #define LEDPIN 6
 #define KEEPALIVE 0 // keep connections alive with regular polling to node 0
 //#define USE_LEDS // LED stripe used
-#define USE_TOUCH // capacitive touch sensing
+//#define USE_TOUCH // capacitive touch sensing
 #define TIMEOUT_HIBERNATE 5000
 #define TIMEOUT_MEMS 5000
 #define TIMEOUT_RADIO 8000
+#define PIN_VIBR 5 // pin for vibration motor, 9 for switchcube1, 5 for switch
 
 #ifdef USE_LEDS
 #include <Adafruit_NeoPixel.h>
@@ -171,8 +172,18 @@ void setup() {
     pinMode(8, OUTPUT); // Vcc for the NRF24 module, 3.5-5V output to an LDO supplying 3.3V
     digitalWrite(8, HIGH); // Vcc for the NRF24 module activated. Shutdown with LOW.
     */
-
+  pinMode(PIN_VIBR, OUTPUT); // vibration motor
   vibr(0); // pull low and disable motor for now
+  vibr(1); // pull low and disable motor for now
+  delay(500); // pull low and disable motor for now
+  vibr(0); // pull low and disable motor for now
+  delay(1500); // pull low and disable motor for now
+  vibr(2); // pull low and disable motor for now
+  delay(1500); // pull low and disable motor for now
+  vibr(3); // pull low and disable motor for now
+  delay(500); // pull low and disable motor for now
+  vibr(0); // pull low and disable motor for now
+
 #ifdef USE_LEDS
   leds.begin(); // the 8 LEDs
   leds.show(); // Initialize all pixels to 'off'

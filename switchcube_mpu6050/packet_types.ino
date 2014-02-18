@@ -10,6 +10,7 @@
  V software version, UID, wID, location
  B reply with the just received timestamp (T->B)
  */
+
 byte br=50; // global brightness setting
 byte _r,_g,_b,_c1,_c2,_c3=50;
 const int PROGMEM breakpoint = 32;
@@ -187,6 +188,7 @@ boolean send_L(uint16_t to, byte* ledmap) // Send out an LED map
   return network.write(header,ledmap,24);
 }
 
+#ifdef USE_LEDS
 void ledupdate(byte* ledmap){
   for(uint8_t i=0; i<leds.numPixels(); i++) {
     uint32_t c = leds.Color(ledmap[i*3],ledmap[(i*3)+1],ledmap[(i*3)+2]);
@@ -194,6 +196,7 @@ void ledupdate(byte* ledmap){
   }
   leds.show();
 }
+#endif
 
 void handle_K(RF24NetworkHeader& header)
 {
@@ -209,7 +212,9 @@ void handle_K(RF24NetworkHeader& header)
     000,000,00,
     000,000,00,
     000,000,0      };
+  #ifdef USE_LEDS
   ledupdate(ledmap);
+  #endif
 
   if (DEBUG) {
     for(uint16_t i=0; i<sizeof(kmap); i++) { // print out the received packet via serial
@@ -227,7 +232,9 @@ void handle_L(RF24NetworkHeader& header)
   if (DEBUG) {
     p("%010ld: 'L' from %05o\n", millis(), header.from_node);
   }
+  #ifdef USE_LEDS
   ledupdate(ledmap);
+  #endif
   if (DEBUG) {
     for(uint16_t i=0; i<sizeof(ledmap); i++) { // print out the received packet via serial
       Serial.print(ledmap[i]);
