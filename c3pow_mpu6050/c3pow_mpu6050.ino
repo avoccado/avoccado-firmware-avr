@@ -1,5 +1,5 @@
 #if 1 // BOF preprocessor bug workaround
-#define HW 2 // define hardware revision, 1=switchcube, 2=C3POWproto2, ... for different pin assignments and peripheral hardware
+#define HW 1 // define hardware revision, 1=switchcube, 2=C3POWproto2, ... for different pin assignments and peripheral hardware
 #include "Arduino.h"
 inline unsigned long get_last_time();
 inline float get_last_x_angle();
@@ -22,7 +22,7 @@ void send_K(unsigned int to);
 boolean send_L(uint16_t to, byte* ledmap);
 void processPacket();
 #line 2
-__asm volatile ("nop");
+__asm volatile ("nop"); // BOF preprocessor bug workaround
 #endif
 
 // I2Cdev and MPU6050 must be installed as libraries, or else the .cpp/.h files
@@ -43,7 +43,7 @@ __asm volatile ("nop");
 #include <stdarg.h>
 #include <EEPROM.h>
 #include <CapacitiveSensor.h>
-#define DEBUG 0 // debug mode with verbose output over serial at 115200 bps
+#define DEBUG 1 // debug mode with verbose output over serial at 115200 bps
 #define USE_EEPROM // read nodeID and network settings from EEPROM at bootup, overwrites nodeID and MAC.
 #define LEDPIN 6
 #define KEEPALIVE 0 // keep connections alive with regular polling to node 0
@@ -344,7 +344,7 @@ void active() {
 void loop() {
   
   /////////////////////////
-  powerMode(6); // WIP - shutdown forever, disable hardware until next hard reset
+  //powerMode(6); // WIP - shutdown forever, disable hardware until next hard reset
   /////////////////////////
   
   if (millis() - lastActive > TIMEOUT_HIBERNATE && (ay < (-10000))) powerMode(5);
