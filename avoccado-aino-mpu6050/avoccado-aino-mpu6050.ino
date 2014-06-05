@@ -32,12 +32,10 @@ __asm volatile ("nop"); // BOF preprocessor bug workaround
 #include <avr/sleep.h>
 #include <avr/power.h>
 
-// Arduino Wire library is required if I2Cdev I2CDEV_ARDUINO_WIRE implementation
-// is used in I2Cdev.h
-#if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
+
+#if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE // Arduino Wire library is required if I2Cdev I2CDEV_ARDUINO_WIRE implementation is used in I2Cdev.h
 #include "Wire.h"
 #endif
-#include <RF24Network.h>
 #include <RF24.h>
 #include <SPI.h>
 #include <stdarg.h>
@@ -59,7 +57,6 @@ __asm volatile ("nop"); // BOF preprocessor bug workaround
 Adafruit_NeoPixel leds = Adafruit_NeoPixel(8, LEDPIN, NEO_GRB + NEO_KHZ800); // number of pixels in strip, pin number, pixel type flags
 #endif
 RF24 radio(A0, 10); // CE, CS. CE at pin A0, CSN at pin 10
-RF24Network network(radio); // mesh network layer
 
 #ifdef USE_TOUCH
 CapacitiveSensor cs = CapacitiveSensor(8, 7);       // capacitive sensing at pins 7 and 8
@@ -191,9 +188,9 @@ void setup() {
   delay(64);
   vibr(0); // stop vibrating
   // initialize devices
-  Serial.println(F("C3POW 0.201402190308"));
+  Serial.println(F("avokado aino 0.201405042213"));
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
-  Serial.println(F("I2CSetup"));
+  Serial.println(F("I2C setup"));
   Wire.begin(); // join I2C bus (I2Cdev library doesn't do this automatically)
 #elif I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE
   Serial.println(F("FastwireSetup"));
@@ -226,7 +223,6 @@ void setup() {
   Serial.print(radio.getCRCLength());
   Serial.print(F("\t datarate: "));
   Serial.println(radio.getDataRate());
-  network.begin( 1, this_node ); // fixed radio channel, node ID
   Serial.print(F("UID: "));
   Serial.print(F("(undefined)\n"));
   p("%010ld: Starting up\n", millis());
@@ -239,7 +235,7 @@ void setup() {
 #endif
 
   // verify connection
-  Serial.println(F("Init I2C..."));
+  Serial.println(F("init I2C..."));
   Serial.println(mpu.testConnection() ? "MPU6050 connected." : "MPU6050 error.");
   calibrate_sensors();
   set_last_read_angle_data(millis(), 0, 0, 0, 0, 0, 0);
@@ -351,9 +347,8 @@ void loop() {
   //  if (millis()-lastActive> TIMEOUT_MEMS) mpu.setSleepEnabled(1);
   //  if (millis()-lastActive> TIMEOUT_RADIO) radio.powerDown();
   wilssen();
-  network.update();
   updates++;
-  while ( network.available() ) // while there are packets in the FIFO buffer
+  while (  ) // while there are packets in the FIFO buffer
   {
     processPacket();
   }
@@ -507,20 +502,6 @@ void p(char *fmt, ... ) {
   vsnprintf(tmp, 128, fmt, args);
   va_end (args);
   Serial.print(tmp);
-}
-
-void add_node(uint16_t node) //TODO: remove_node, after a certain timeout...
-{
-  short i = num_active_nodes;
-  while (i--)
-    if ( active_nodes[i] == node ) break; // Do we already know about this node?
-  if ( i == -1 && num_active_nodes < max_active_nodes )  // If not and there is enough place, add it to the table
-  {
-    active_nodes[num_active_nodes++] = node;
-    if (DEBUG) {
-      p("%010ld: New node: %05o\n", millis(), node);
-    }
-  }
 }
 
 unsigned long microsRollover() { //based on Rob Faludi's (rob.faludi.com) milli wrapper
