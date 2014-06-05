@@ -1,16 +1,10 @@
 /*
- Copyright (C) 2011 J. Coliz <maniacbug@ymail.com>
-
- This program is free software; you can redistribute it and/or
- modify it under the terms of the GNU General Public License
- version 2 as published by the Free Software Foundation.
+ Avoccado
+ Open Source Haptic Input Device.
+ WIP Adhoc networking. No meshing.
+ Licensing information in the repository, see file LICENSE.
  */
 
-/**
- * Example using Dynamic Payloads 
- *
- * This is an example of how to use payloads of a varying (dynamic) size. 
- */
 
 #include <SPI.h>
 #include "nRF24L01.h"
@@ -25,7 +19,7 @@ RF24 radio(A0, 10); // setting up the NRF24 radio: CE, CS. CE at pin A0, CSN at 
 
 // sets the role of this unit in hardware.  Connect to GND to be the 'pong' receiver
 // Leave open to be the 'ping' transmitter
-const int role_pin = 7;
+const int role_pin = 1;
 
 //
 // Topology
@@ -66,14 +60,10 @@ char receive_payload[max_payload_size+1]; // +1 to allow room for a terminating 
 
 void setup(void)
 {
-
-  // set up the role pin
-  pinMode(role_pin, INPUT);
-  digitalWrite(role_pin,HIGH);
   delay(20); // Just to get a solid reading on the role pin
 
   // read the address pin, establish our role
-  if ( digitalRead(role_pin) )
+  if ( role_pin==1 )
     role = role_ping_out;
   else
     role = role_pong_back;
