@@ -12,7 +12,6 @@ void setup();
 void active();
 void loop();
 void wilssen();
-unsigned long microsRollover();
 void ledst(int sta);
 void colorWipe(uint32_t c, uint8_t wait);
 void set_last_read_angle_data(unsigned long time, float x, float y, float z, float x_gyro, float y_gyro, float z_gyro);
@@ -74,10 +73,6 @@ unsigned long errors = 0;
 unsigned int loss = 0;
 unsigned long p_sent = 0;
 unsigned long p_recv = 0;
-// Variables for the 32bit unsigned long Microsecond rollover handling
-static unsigned long microRollovers = 0; // variable that permanently holds the number of rollovers since startup
-static unsigned long halfwayMicros = 2147483647; // this is halfway to the max unsigned long value of 4294967296
-static boolean readyToRoll = false; // tracks whether we've made it halfway to rollover
 
 const short max_active_nodes = 32; // the size of the array with active nodes
 uint16_t active_nodes[max_active_nodes];
@@ -85,13 +80,12 @@ short num_active_nodes = 0;
 short next_ping_node_index = 0;
 unsigned long last_time_sent;
 unsigned long updates = 0; // has to be changed to unsigned long if the interval is too long
-void add_node(uint16_t node);
 boolean send_T(uint16_t to);
 void send_L1(int to, int _b);
-void handle_K(RF24NetworkHeader& header);
-void handle_L(RF24NetworkHeader& header);
-void handle_T(RF24NetworkHeader& header);
-void handle_B(RF24NetworkHeader& header);
+void handle_K(char header);
+void handle_L(char header);
+void handle_T(char header);
+void handle_B(char header);
 void ledupdate(byte* ledmap);
 void p(char *fmt, ... );
 void ledst(int sta = 127);
@@ -166,8 +160,7 @@ byte mode = 0;
 unsigned long lastActive = 0;
 
 void setup() {
-  // ONLY for C3POW prototype 2:
-  #if HW == 2
+  #if HW == 2 // only for C3POW prototype 2:
     pinMode(7,OUTPUT);
     digitalWrite(7, HIGH); // Vcc for MPU6050
     pinMode(8, OUTPUT); // Vcc for the NRF24 module
@@ -188,7 +181,7 @@ void setup() {
   delay(64);
   vibr(0); // stop vibrating
   // initialize devices
-  Serial.println(F("avokado aino 0.201405042213"));
+  Serial.println(F("avokado aino 0.201406141412"));
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
   Serial.println(F("I2C setup"));
   Wire.begin(); // join I2C bus (I2Cdev library doesn't do this automatically)
@@ -217,6 +210,11 @@ void setup() {
   radio.begin(); // init of the NRF24
   // The amplifier gain can be set to RF24_PA_MIN=-18dBm, RF24_PA_LOW=-12dBm, RF24_PA_MED=-6dBM, and RF24_PA_MAX=0dBm.
   radio.setPALevel(RF24_PA_MAX); // transmitter gain value (see above)
+  radio.enableDynamicPayloads();   // enable dynamic payloads
+  radio.setRetries(4,8);   // optionally, increase the delay between retries & # of retries
+  radio.setChannel(42);
+  radio.setDataRate(RF24_250KBPS);
+  radio.setCRCLength(RF24_CRC_16);
   Serial.print(F("PA-level: "));
   Serial.print(radio.getPALevel());
   Serial.print(F("\t CRC: "));
@@ -397,15 +395,12 @@ void loop() {
     if (sweep > 254) sweep = 0;
     strobe = !strobe;
     if ( this_node == 00) {
-      for (short _i = 0; _i < num_active_nodes; _i++) {
         send_K(active_nodes[_i]);
       }
     }
   }
 
-  /*
 
-  */
   /*
   radio.powerDown();
   Serial.print(F("MotionDetectionDuration: "));
@@ -502,27 +497,4 @@ void p(char *fmt, ... ) {
   vsnprintf(tmp, 128, fmt, args);
   va_end (args);
   Serial.print(tmp);
-}
-
-unsigned long microsRollover() { //based on Rob Faludi's (rob.faludi.com) milli wrapper
-
-  // This would work even if the function were only run once every 35 minutes, though typically,
-  // the function should be called as frequently as possible to capture the actual moment of rollover.
-  // The rollover counter is good for over 584000 years of runtime.
-  //  --Alex Shure
-
-  unsigned long nowMicros = micros(); // the time right now
-
-  if (nowMicros > halfwayMicros) { // as long as the value is greater than halfway to the max
-    readyToRoll = true; // we are in the second half of the current period and ready to roll over
-  }
-
-  if (readyToRoll == true && nowMicros < halfwayMicros) {
-    // if we've previously made it to halfway
-    // and the current millis() value is now _less_ than the halfway mark
-    // then we have rolled over
-    microRollovers++; // add one to the count of rollovers (approx 71 minutes)
-    readyToRoll = false; // we're no longer past halfway, reset!
-  }
-  return microRollovers;
 }

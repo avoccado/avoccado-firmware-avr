@@ -5,11 +5,28 @@
  Licensing information in the repository, see file LICENSE.
  */
 
-
+#if 1 // BOF preprocessor bug workaround
+#define HW 1 // define hardware revision, 1=switchcube, 2=C3POWproto2, ... for different pin assignments and peripheral hardware
+#include "Arduino.h"
 #include <SPI.h>
 #include "nRF24L01.h"
 #include "RF24.h"
 #include "printf.h"
+#line 2
+__asm volatile ("nop"); // BOF preprocessor bug workaround
+#endif
+
+//
+// Prototypes
+//
+
+inline unsigned long get_last_time();
+inline float get_last_x_angle();
+inline float get_last_y_angle();
+inline float get_last_z_angle();
+inline float get_last_gyro_x_angle();
+inline float get_last_gyro_y_angle();
+inline float get_last_gyro_z_angle();
 
 //
 // Hardware configuration
@@ -39,10 +56,10 @@ const uint64_t pipes[2] = { 0xAEAEAEAEA0LL, 0xAEAEAEAEA1LL };
 //
 
 // The various roles supported by this sketch
-typedef enum { role_ping_out = 1, role_pong_back } role_e;
+typedef enum { sender = 1, receiver } role_e;
 
 // The debug-friendly names of those roles
-const char* role_friendly_name[] = { "invalid", "Ping out", "Pong back"};
+const char* role_friendly_name[] = { "invalid", "sender", "receiver"};
 
 // The role of the current running sketch
 role_e role;
@@ -64,9 +81,9 @@ void setup(void)
 
   // read the address pin, establish our role
   if ( role_pin==1 )
-    role = role_ping_out;
+    role = sender;
   else
-    role = role_pong_back;
+    role = receiver;
 
   //
   // Print preamble
@@ -80,7 +97,18 @@ void setup(void)
   radio.begin();
   radio.enableDynamicPayloads();   // enable dynamic payloads
   radio.setRetries(4,8);   // optionally, increase the delay between retries & # of retries
-
+  radio.setChannel(42);
+   // The amplifier gain can be set to RF24_PA_MIN=-18dBm, RF24_PA_LOW=-12dBm, RF24_PA_MED=-6dBM, and RF24_PA_MAX=0dBm.
+  radio.setPALevel(RF24_PA_MAX); // transmitter gain value (see above)
+  radio.setDataRate(RF24_250KBPS);
+  radio.setCRCLength(RF24_CRC_16);
+  
+  Serial.print(F("PA-level: "));
+  Serial.print(radio.getPALevel());
+  Serial.print(F("\t CRC: "));
+  Serial.print(radio.getCRCLength());
+  Serial.print(F("\t datarate: "));
+  Serial.println(radio.getDataRate());
   //
   // Open pipes to other nodes for communication
   //
@@ -90,7 +118,7 @@ void setup(void)
   // Open 'our' pipe for writing
   // Open the 'other' pipe for reading, in position #1 (we can have up to 5 pipes open for reading)
 
-  if ( role == role_ping_out )
+  if ( role == sender )
   {
     radio.openWritingPipe(pipes[0]);
     radio.openReadingPipe(1,pipes[1]);
@@ -112,7 +140,7 @@ void loop(void)
   // Ping out role.  Repeatedly send the current time
   //
 
-  if (role == role_ping_out)
+  if (role == sender)
   {
     // The payload will always be the same, what will change is how much of it we send.
     static char send_payload[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ789012"; //32 byte max
@@ -161,7 +189,7 @@ void loop(void)
   // Pong back role.  Receive each packet, dump it out, and send it back
   //
 
-  if ( role == role_pong_back )
+  if ( role == receiver )
   {
     // if there is data ready
     if ( radio.available() )
@@ -177,7 +205,6 @@ void loop(void)
 
 	// Put a zero at the end for easy printing
 	receive_payload[len] = 0;
-
 	// Spew it
 	printf("Got payload size=%i value=%s\n\r",len,receive_payload);
       }

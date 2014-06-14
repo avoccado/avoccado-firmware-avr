@@ -5,11 +5,23 @@
  F error code (1 byte) + error value (1 byte)
  G 
  H reserved for home automation packet
+ K LED map based on 6-dimensional input
  L LED map
  T send out timestamp
  V software version, UID, wID, location
  B reply with the just received timestamp (T->B)
  */
+
+network.read(header,kmap,sizeof(kmap));
+    boolean done = false;
+    while (!done)
+    {
+      // Fetch the payload, and see if this was the last one.
+      done = radio.read( frame_buffer, sizeof(frame_buffer) );
+
+      // Read the beginning of the frame as the header
+      const RF24NetworkHeader& header = * reinterpret_cast<RF24NetworkHeader*>(frame_buffer);
+    }  
 
 byte br=50; // global brightness setting
 byte _r,_g,_b,_c1,_c2,_c3=50;
@@ -176,16 +188,16 @@ void send_L1(int to, int _b = 0){
 boolean send_T(uint16_t to) // Send out this nodes' time -> Timesync!
 {
   if (DEBUG) p("%010ld: Sent 'T' to   %05o", millis(),to);
-  RF24NetworkHeader header(to,'T');
+  //RF24NetworkHeader header(to,'T');
   unsigned long time = micros();
-  return network.write(header,&time,sizeof(time));
+  return radio.write(&time,sizeof(time));
 }
 
 boolean send_L(uint16_t to, byte* ledmap) // Send out an LED map
 {
   if (DEBUG) p("%010ld: 'L' to   %05o", millis(),to);
-  RF24NetworkHeader header(to,'L');
-  return network.write(header,ledmap,24);
+  //RF24NetworkHeader header(to,'L');
+  return radio.write(header,ledmap,24);
 }
 
 #ifdef USE_LEDS
