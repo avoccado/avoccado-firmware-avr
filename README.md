@@ -1,23 +1,23 @@
-C3POW
+Avoccado
 ==========
-FKA switchcube[1]
+FKA C3POW, switchcube[1]
 
-<a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="http://i.creativecommons.org/l/by-nc-sa/4.0/88x31.png" /></a><br /><span xmlns:dct="http://purl.org/dc/terms/" property="dct:title">C3POW</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/">Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License</a> for now. This will change into a libre Open Source license after I contacted every involved entity and got their agreement. (shure)
+<a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="http://i.creativecommons.org/l/by-sa/4.0/88x31.png" /></a><br />Avoccado is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>. Some Code is released under other Open Source licenses, like GPL/LGPL/MIT, which is then stated in the according source files.
 
 hackable haptic input device based on etemu/wilssen
 
 The inner guts of the switchcube.
 
-**c3pow** usage examples:
+**Avoccado** usage examples:
 - a universal remote control, e.g. in your home automation system;
 - Lights can be switched and dimmed with gestures like tapping, flipping the cube over or turning it clockwise/counterclockwise.
 - Switch the light off, if there is no movement after a certain timeout. And switch the light on if you  tap the cube, toss it, kick it or just enter the room. If placed on the ground near the door, the accelerometer can detect a Person entering a room due to the vibrations in the floor.
 - Adjust the music on your Linux/Mac/Win based system via gestures like tapping (play/pause, skip) and turning (volume).
 - Dim up the lights to a brief level for 5 minutes when you touch the system on your nightstand.
 
-The **c3pow** will be fully Open Source and hackable. 
+The **Avoccado** is fully Open Source and hackable. 
 
-**c3pow** hardware may contain the following peripherals for added functionality. Only the base microcontroller is mandatory for basic operation.
+**Avoccado** hardware may contain the following peripherals for added functionality. Only the base microcontroller is mandatory for basic operation.
 
 - Atmel AtMega 644, Arduino compatible. Should also fit on a 328/32U2, Arduino UNO, etc.
 - Nordic Semiconductors NRF24L01+
@@ -28,4 +28,4 @@ The **c3pow** will be fully Open Source and hackable.
 - Maxim MAX1555 LiPo/LiIo Charger, 
 - 1sXp 18650 LiCoO2 cells 
 
-[1] The first prototype was a wooden cube which contained all the **c3pow** electronics. However the encasing may be arbitrary and not cubical at all, thus switchcube is now deprecated.
+[1] The first prototype was a wooden cube which contained all the **Avoccado** electronics. However the encasing may be arbitrary and not cubical at all, thus switchcube is now deprecated. C3POW was the working title for the pre-alpha version.
