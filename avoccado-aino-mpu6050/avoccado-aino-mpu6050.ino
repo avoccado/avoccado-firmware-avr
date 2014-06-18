@@ -1,10 +1,9 @@
 #if 1 // BOF preprocessor bug workaround
-#define HW 1 // define hardware revision, 1=switchcube, 2=C3POWproto2, ... for different pin assignments and peripheral hardware
+#define HW 2 // define hardware revision, 1=switchcube, 2=C3POWproto2, ... for different pin assignments and peripheral hardware
 #include "Arduino.h"
 inline unsigned long get_last_time();
 
 void active();
-void wilssen();
 void ledst(int sta);
 void colorWipe(uint32_t c, uint8_t wait);
 void set_last_read_angle_data(unsigned long time, float x, float y, float z, float x_gyro, float y_gyro, float z_gyro);
@@ -36,10 +35,10 @@ __asm volatile ("nop"); // BOF preprocessor bug workaround
 #define DEBUG 1 // debug mode with verbose output over serial at 115200 bps
 #define USE_EEPROM // read nodeID and network settings from EEPROM at bootup, overwrites nodeID and MAC.
 #define LEDPIN 6
-#define KEEPALIVE 0 // keep connections alive with regular polling to node 0
+#define KEEPALIVE 1 // keep connections alive with regular polling to node 0
 //#define USE_LEDS // LED stripe used
 //#define USE_TOUCH // capacitive touch sensing
-#define TIMEOUT_HIBERNATE 5000
+#define TIMEOUT_HIBERNATE 2000
 #define TIMEOUT_MEMS 5000
 #define TIMEOUT_RADIO 8000
 #define PIN_VIBR 5 // pin for vibration motor, 9 for switchcube1, 5 for switch
@@ -55,7 +54,7 @@ CapacitiveSensor cs = CapacitiveSensor(8, 7);       // capacitive sensing at pin
 #endif
 
 const unsigned long interval_filter = 32;
-const unsigned long interval = 50; // KEEPALIVE interval in [ms]
+const unsigned long interval = 256; // KEEPALIVE interval in [ms]
 unsigned long last_time_filtered;
 byte sweep = 0;
 byte nodeID = 1; // Unique Node Identifier (2...254) - also the last byte of the IPv4 adress, not used if USE_EEPROM is set
@@ -174,7 +173,7 @@ void setup() {
   delay(64);
   vibr(0); // stop vibrating
   // initialize devices
-  Serial.println(F("avokado aino 0.201406141412"));
+  Serial.println(F("avoccado aino 0.201406181957"));
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
   Serial.println(F("I2C setup"));
   Wire.begin(); // join I2C bus (I2Cdev library doesn't do this automatically)
@@ -266,8 +265,8 @@ void powerMode(byte _mode = mode) {
       vibr(1);
       delay(64);
       vibr(0);
-      setup_watchdog(wdt_1s); // set touch check interval
-      while ( ay < (-10000) ) { // if the C3POW device is resting in this position
+      setup_watchdog(wdt_250ms); // set touch check interval
+      while ( ((ay < (-10000)) || ay > (10000)) ) { // if the C3POW device is resting in this position
         do_sleep(); // keep on sleeping
         powerMode(1); // power up MEMS, wake up every watchdog timer interval
         //        mpucheck();
@@ -334,10 +333,9 @@ void loop() {
   //powerMode(6); // WIP - shutdown forever, disable hardware until next hard reset
   /////////////////////////
 
-  if (millis() - lastActive > TIMEOUT_HIBERNATE && (ay < (-10000))) powerMode(5);
+  if (millis() - lastActive > TIMEOUT_HIBERNATE && ((ay < (-10000)) || ay > (10000))) powerMode(5);
   //  if (millis()-lastActive> TIMEOUT_MEMS) mpu.setSleepEnabled(1);
   //  if (millis()-lastActive> TIMEOUT_RADIO) radio.powerDown();
-  wilssen();
   updates++;
 
   if ( radio.available() ) // while there are packets in the FIFO buffer
@@ -367,7 +365,7 @@ void loop() {
     updates = 0;
     last_time_sent = now;
     if (KEEPALIVE) {
-      uint16_t to = 000;
+      uint16_t to = 01;
       bool ok = 0;
       if ( to != this_node)
       {
@@ -403,51 +401,7 @@ Serial.print(mpu.getFullScaleGyroRange());
 Serial.print(F("\t getClockSource: "));
 Serial.print(mpu.getClockSource());
 Serial.print(F("\n"));
-Serial.print(F("Radio down.\n"));
-delay(1000);
-
-Serial.print(F("+MCU into sleep mode for 10s.\n"));
-delay(50);
-while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
-sleep_cycles_remaining = sleep_cycles_per_transmission;
-
-Serial.print(F("+Xgyro now sleeping for 10s.\n"));
-mpu.setStandbyXGyroEnabled(1);
-delay(50);
-while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
-sleep_cycles_remaining = sleep_cycles_per_transmission;
-
-Serial.print(F("+Ygyro now sleeping for 10s.\n"));
-mpu.setStandbyYGyroEnabled(1);
-delay(50);
-while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
-sleep_cycles_remaining = sleep_cycles_per_transmission;
-
-Serial.print(F("+Zgyro now sleeping for 10s.\n"));
-mpu.setStandbyZGyroEnabled(1);
-delay(50);
-while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
-sleep_cycles_remaining = sleep_cycles_per_transmission;
-
-Serial.print(F("+setSleepEnabled(1) for 10s.\n"));
-mpu.setSleepEnabled(1);
-delay(50);
-while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
-sleep_cycles_remaining = sleep_cycles_per_transmission;
-
-Serial.print(F("MCU now sleeping for 10s with power to radio cut off.\n"));
-delay(127);
-while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
-Serial.print(F("MCU awake. 1s delay to radio powerup.\n"));
-digitalWrite(8, HIGH);
-digitalWrite(7, HIGH);
-delay(1000);
-mpu.setSleepEnabled(0);
-radio.powerUp();
-Serial.print(F("Radio up.\n"));
-sleep_cycles_remaining = sleep_cycles_per_transmission;
 */
-
 // 0=16ms, 1=32ms,2=64ms,3=125ms,4=250ms,5=500ms
 // 6=1 sec,7=2 sec, 8=4 sec, 9= 8sec
 void setup_watchdog(uint8_t prescalar)
@@ -474,10 +428,6 @@ void do_sleep(void)
   sleep_disable();                     // System continues execution here when watchdog timed out
 }
 
-
-void wilssen() {
-
-}
 
 // Arduino version of the printf()-funcition in C
 void p(char *fmt, ... ) {
