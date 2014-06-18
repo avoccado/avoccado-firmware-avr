@@ -36,7 +36,7 @@ RF24 radio(A0, 10); // setting up the NRF24 radio: CE, CS. CE at pin A0, CSN at 
 
 // sets the role of this unit in hardware.  Connect to GND to be the 'pong' receiver
 // Leave open to be the 'ping' transmitter
-const int role_pin = 1;
+const int role_pin = 0;
 
 //
 // Topology
@@ -88,7 +88,13 @@ void setup(void)
   //
   // Print preamble
   //
-
+  pinMode(A1,OUTPUT);
+  digitalWrite(A1, LOW); // Vcc for MPU6050
+  pinMode(5,OUTPUT);
+  digitalWrite(5, HIGH); // Vcc for MPU6050
+  pinMode(7,OUTPUT);
+  digitalWrite(7, HIGH); // Vcc for MPU6050
+    
   Serial.begin(115200);
   printf_begin();
   printf("\n\r  \n\r");
@@ -143,7 +149,7 @@ void loop(void)
   if (role == sender)
   {
     // The payload will always be the same, what will change is how much of it we send.
-    static char send_payload[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ789012"; //32 byte max
+    static char send_payload[] = "LBCDEFGHIJKLMNOPQRSTUVWXYZ789012"; //32 byte max
     radio.stopListening(); // stop listening so we can talk.
     printf("Now sending length %i...",next_payload_size);
     radio.write( send_payload, next_payload_size ); // This will block until complete
