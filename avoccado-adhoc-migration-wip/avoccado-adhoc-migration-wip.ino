@@ -64,6 +64,7 @@ const char* role_friendly_name[] = { "invalid", "sender", "receiver"};
 // The role of the current running sketch
 role_e role;
 
+
 //
 // Payload
 //
@@ -73,7 +74,7 @@ const int max_payload_size = 32;
 const int payload_size_increments_by = 2;
 int next_payload_size = min_payload_size; // initial payload set to minimum
 
-char receive_payload[max_payload_size+1]; // +1 to allow room for a terminating NULL char
+char receive_payload[32+1]; // +1 to allow room for a terminating NULL char
 
 void setup(void)
 {
@@ -219,8 +220,8 @@ void loop(void)
       radio.stopListening();
 
       // Send the final one back.
-      radio.write( receive_payload, len );
-      printf("Sent response.\n\r");
+      //radio.write( receive_payload, len );
+      //printf("Sent response.\n\r");
 
       // Now, resume listening so we catch the next packets.
       radio.startListening();

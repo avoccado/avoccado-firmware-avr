@@ -151,6 +151,21 @@ bool checkTouch(unsigned int _sensitivity = 96);
 byte mode = 0;
 unsigned long lastActive = 0;
 
+// The various roles supported by this sketch
+typedef enum { sender = 1, receiver } role_e;
+
+// The debug-friendly names of those roles
+const char* role_friendly_name[] = { "invalid", "sender", "receiver"};
+
+// The role of the current running sketch
+role_e role;
+
+const int role_pin = 1;
+
+// Radio pipe addresses for the 2 nodes to communicate.
+const uint64_t pipes[2] = { 0xAEAEAEAEA0LL, 0xAEAEAEAEA1LL };
+
+
 void setup() {
 #if HW == 2 // only for C3POW prototype 2:
   pinMode(7, OUTPUT);
@@ -205,16 +220,40 @@ void setup() {
   radio.enableDynamicPayloads();   // enable dynamic payloads
   radio.setRetries(4, 8);  // optionally, increase the delay between retries & # of retries
   radio.setChannel(42);
+  Serial.print(F("\t datarate 1M: "));
+  Serial.println(radio.getDataRate());
   radio.setDataRate(RF24_250KBPS);
   radio.setCRCLength(RF24_CRC_16);
   Serial.print(F("PA-level: "));
   Serial.print(radio.getPALevel());
   Serial.print(F("\t CRC: "));
   Serial.print(radio.getCRCLength());
-  Serial.print(F("\t datarate: "));
+  Serial.print(F("\t datarate 250K: "));
   Serial.println(radio.getDataRate());
+  Serial.println();
+  
+    if ( role_pin==1 )
+    role = sender;
+  else
+    role = receiver;
+  
+  p("\t role: %s\n\r",role_friendly_name[role]);
+  if ( role == sender )
+  {
+    radio.openWritingPipe(pipes[0]);
+    radio.openReadingPipe(1,pipes[1]);
+  }
+  else
+  {
+    radio.openWritingPipe(pipes[1]);
+    radio.openReadingPipe(1,pipes[0]);
+  }
+
+  radio.startListening();
+  radio.printDetails();
+  Serial.println();
   Serial.print(F("UID: "));
-  Serial.print(F("(undefined)\n"));
+  Serial.print(F("(N/A)\n"));
   p("%010ld: Starting up\n", millis());
 #ifdef USE_LEDS
   colorWipe(leds.Color(50, 0, 0), 50); // Red
