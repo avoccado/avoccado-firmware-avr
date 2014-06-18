@@ -2,15 +2,8 @@
 #define HW 1 // define hardware revision, 1=switchcube, 2=C3POWproto2, ... for different pin assignments and peripheral hardware
 #include "Arduino.h"
 inline unsigned long get_last_time();
-inline float get_last_x_angle();
-inline float get_last_y_angle();
-inline float get_last_z_angle();
-inline float get_last_gyro_x_angle();
-inline float get_last_gyro_y_angle();
-inline float get_last_gyro_z_angle();
-void setup();
+
 void active();
-void loop();
 void wilssen();
 void ledst(int sta);
 void colorWipe(uint32_t c, uint8_t wait);
@@ -154,18 +147,18 @@ volatile short sleep_cycles_remaining = sleep_cycles_per_transmission;
 void powerMode(byte _mode);
 
 void vibr(byte _state);
-void pulse(unsigned int _length=50);
+void pulse(unsigned int _length = 50);
 bool checkTouch(unsigned int _sensitivity = 96);
 byte mode = 0;
 unsigned long lastActive = 0;
 
 void setup() {
-  #if HW == 2 // only for C3POW prototype 2:
-    pinMode(7,OUTPUT);
-    digitalWrite(7, HIGH); // Vcc for MPU6050
-    pinMode(8, OUTPUT); // Vcc for the NRF24 module
-    digitalWrite(8, HIGH); // Vcc for the NRF24 module activated. Shutdown and hard power cut-off with LOW. Need to be initialized again afterwards.
-  #endif
+#if HW == 2 // only for C3POW prototype 2:
+  pinMode(7, OUTPUT);
+  digitalWrite(7, HIGH); // Vcc for MPU6050
+  pinMode(8, OUTPUT); // Vcc for the NRF24 module
+  digitalWrite(8, HIGH); // Vcc for the NRF24 module activated. Shutdown and hard power cut-off with LOW. Need to be initialized again afterwards.
+#endif
   pinMode(PIN_VIBR, OUTPUT); // vibration motor
   vibr(0); // pull low and disable motor for now
   vibr(1); // vibrate during bootup
@@ -211,7 +204,7 @@ void setup() {
   // The amplifier gain can be set to RF24_PA_MIN=-18dBm, RF24_PA_LOW=-12dBm, RF24_PA_MED=-6dBM, and RF24_PA_MAX=0dBm.
   radio.setPALevel(RF24_PA_MAX); // transmitter gain value (see above)
   radio.enableDynamicPayloads();   // enable dynamic payloads
-  radio.setRetries(4,8);   // optionally, increase the delay between retries & # of retries
+  radio.setRetries(4, 8);  // optionally, increase the delay between retries & # of retries
   radio.setChannel(42);
   radio.setDataRate(RF24_250KBPS);
   radio.setCRCLength(RF24_CRC_16);
@@ -298,21 +291,21 @@ void powerMode(byte _mode = mode) {
       radio.powerDown();
       mpu.setSleepEnabled(1);
       vibr(4); // descending heartbeat pattern
-      delay(512);      
+      delay(512);
       vibr(4);
-      delay(700);      
+      delay(700);
       vibr(4);
-      delay(900);      
+      delay(900);
       vibr(4);
-      delay(1100);      
+      delay(1100);
       vibr(5);
-      delay(1280);      
+      delay(1280);
       vibr(5);
-      delay(1650);      
+      delay(1650);
       pulse(32);
       setup_watchdog(wdt_8s); // longest watchdog interval
-      while(1) do_sleep(); // sleep forever
-      break;      
+      while (1) do_sleep(); // sleep forever
+      break;
     default: // no change in power mode
       return;
   };
@@ -336,17 +329,18 @@ void active() {
 }
 
 void loop() {
-  
+
   /////////////////////////
   //powerMode(6); // WIP - shutdown forever, disable hardware until next hard reset
   /////////////////////////
-  
+
   if (millis() - lastActive > TIMEOUT_HIBERNATE && (ay < (-10000))) powerMode(5);
   //  if (millis()-lastActive> TIMEOUT_MEMS) mpu.setSleepEnabled(1);
   //  if (millis()-lastActive> TIMEOUT_RADIO) radio.powerDown();
   wilssen();
   updates++;
-  while (  ) // while there are packets in the FIFO buffer
+
+  if ( radio.available() ) // while there are packets in the FIFO buffer
   {
     processPacket();
   }
@@ -394,69 +388,65 @@ void loop() {
     sweep += 1;
     if (sweep > 254) sweep = 0;
     strobe = !strobe;
-    if ( this_node == 00) {
-        send_K(active_nodes[_i]);
-      }
-    }
   }
-
-
-  /*
-  radio.powerDown();
-  Serial.print(F("MotionDetectionDuration: "));
-  Serial.print(mpu.getMotionDetectionDuration());
-  Serial.print(F("\t Threshold: "));
-  Serial.print(mpu.getMotionDetectionThreshold());
-  Serial.print(F("\t gyroRange: "));
-  Serial.print(mpu.getFullScaleGyroRange());
-  Serial.print(F("\t getClockSource: "));
-  Serial.print(mpu.getClockSource());
-  Serial.print(F("\n"));
-  Serial.print(F("Radio down.\n"));
-  delay(1000);
-
-  Serial.print(F("+MCU into sleep mode for 10s.\n"));
-  delay(50);
-  while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
-  sleep_cycles_remaining = sleep_cycles_per_transmission;
-
-  Serial.print(F("+Xgyro now sleeping for 10s.\n"));
-  mpu.setStandbyXGyroEnabled(1);
-  delay(50);
-  while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
-  sleep_cycles_remaining = sleep_cycles_per_transmission;
-
-  Serial.print(F("+Ygyro now sleeping for 10s.\n"));
-  mpu.setStandbyYGyroEnabled(1);
-  delay(50);
-  while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
-  sleep_cycles_remaining = sleep_cycles_per_transmission;
-
-  Serial.print(F("+Zgyro now sleeping for 10s.\n"));
-  mpu.setStandbyZGyroEnabled(1);
-  delay(50);
-  while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
-  sleep_cycles_remaining = sleep_cycles_per_transmission;
-
-  Serial.print(F("+setSleepEnabled(1) for 10s.\n"));
-  mpu.setSleepEnabled(1);
-  delay(50);
-  while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
-  sleep_cycles_remaining = sleep_cycles_per_transmission;
-
-  Serial.print(F("MCU now sleeping for 10s with power to radio cut off.\n"));
-  delay(127);
-  while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
-  Serial.print(F("MCU awake. 1s delay to radio powerup.\n"));
-  digitalWrite(8, HIGH);
-  digitalWrite(7, HIGH);
-  delay(1000);
-  mpu.setSleepEnabled(0);
-  radio.powerUp();
-  Serial.print(F("Radio up.\n"));
-  sleep_cycles_remaining = sleep_cycles_per_transmission;
-  */
 }
+
+
+/*
+radio.powerDown();
+Serial.print(F("MotionDetectionDuration: "));
+Serial.print(mpu.getMotionDetectionDuration());
+Serial.print(F("\t Threshold: "));
+Serial.print(mpu.getMotionDetectionThreshold());
+Serial.print(F("\t gyroRange: "));
+Serial.print(mpu.getFullScaleGyroRange());
+Serial.print(F("\t getClockSource: "));
+Serial.print(mpu.getClockSource());
+Serial.print(F("\n"));
+Serial.print(F("Radio down.\n"));
+delay(1000);
+
+Serial.print(F("+MCU into sleep mode for 10s.\n"));
+delay(50);
+while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
+sleep_cycles_remaining = sleep_cycles_per_transmission;
+
+Serial.print(F("+Xgyro now sleeping for 10s.\n"));
+mpu.setStandbyXGyroEnabled(1);
+delay(50);
+while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
+sleep_cycles_remaining = sleep_cycles_per_transmission;
+
+Serial.print(F("+Ygyro now sleeping for 10s.\n"));
+mpu.setStandbyYGyroEnabled(1);
+delay(50);
+while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
+sleep_cycles_remaining = sleep_cycles_per_transmission;
+
+Serial.print(F("+Zgyro now sleeping for 10s.\n"));
+mpu.setStandbyZGyroEnabled(1);
+delay(50);
+while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
+sleep_cycles_remaining = sleep_cycles_per_transmission;
+
+Serial.print(F("+setSleepEnabled(1) for 10s.\n"));
+mpu.setSleepEnabled(1);
+delay(50);
+while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
+sleep_cycles_remaining = sleep_cycles_per_transmission;
+
+Serial.print(F("MCU now sleeping for 10s with power to radio cut off.\n"));
+delay(127);
+while ( sleep_cycles_remaining ) do_sleep(); // Sleep the MCU, the watchdog timer will awaken in a short while.
+Serial.print(F("MCU awake. 1s delay to radio powerup.\n"));
+digitalWrite(8, HIGH);
+digitalWrite(7, HIGH);
+delay(1000);
+mpu.setSleepEnabled(0);
+radio.powerUp();
+Serial.print(F("Radio up.\n"));
+sleep_cycles_remaining = sleep_cycles_per_transmission;
+*/
 
 // 0=16ms, 1=32ms,2=64ms,3=125ms,4=250ms,5=500ms
 // 6=1 sec,7=2 sec, 8=4 sec, 9= 8sec

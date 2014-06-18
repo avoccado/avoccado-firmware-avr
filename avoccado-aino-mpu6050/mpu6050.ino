@@ -1,3 +1,14 @@
+inline float get_last_x_angle();
+inline float get_last_y_angle();
+inline float get_last_z_angle();
+inline float get_last_gyro_x_angle();
+inline float get_last_gyro_y_angle();
+inline float get_last_gyro_z_angle();
+float angle_x;
+float angle_y;
+float angle_z;
+
+
 void set_last_read_angle_data(unsigned long time, float x, float y, float z, float x_gyro, float y_gyro, float z_gyro) {
   last_read_time = time;
   last_x_angle = x;
@@ -140,10 +151,6 @@ void mpucheck() {
   Serial.write((uint8_t)(gz & 0xFF));
 #endif
 }
-
-  float angle_x;
-  float angle_y;
-  float angle_z;
 
 void getangle()
 {

@@ -11,17 +11,8 @@
  V software version, UID, wID, location
  B reply with the just received timestamp (T->B)
  */
-
-network.read(header,kmap,sizeof(kmap));
-    boolean done = false;
-    while (!done)
-    {
-      // Fetch the payload, and see if this was the last one.
-      done = radio.read( frame_buffer, sizeof(frame_buffer) );
-
-      // Read the beginning of the frame as the header
-      const RF24NetworkHeader& header = * reinterpret_cast<RF24NetworkHeader*>(frame_buffer);
-    }  
+ 
+char receive_payload[32+1]; // +1 to allow room for a terminating NULL char
 
 byte br=50; // global brightness setting
 byte _r,_g,_b,_c1,_c2,_c3=50;
@@ -197,7 +188,7 @@ boolean send_L(uint16_t to, byte* ledmap) // Send out an LED map
 {
   if (DEBUG) p("%010ld: 'L' to   %05o", millis(),to);
   //RF24NetworkHeader header(to,'L');
-  return radio.write(header,ledmap,24);
+  return radio.write(ledmap,sizeof(ledmap));
 }
 
 #ifdef USE_LEDS
@@ -210,11 +201,11 @@ void ledupdate(byte* ledmap){
 }
 #endif
 
-void handle_K(RF24NetworkHeader& header)
+void handle_K()
 {
   byte kmap[24];
-  network.read(header,kmap,sizeof(kmap));
-  if (DEBUG) p("%010ld: 'K' from %05o\n", millis(), header.from_node);
+
+  if (DEBUG) p("%010ld: 'K' from %05o\n", millis(), receive_payload[0]);
   byte ledmap[24]={
     000,000,000, // status LED at 0
     kmap[0],kmap[1],kmap[2], // acc values
@@ -237,12 +228,12 @@ void handle_K(RF24NetworkHeader& header)
   }
 }
 
-void handle_L(RF24NetworkHeader& header)
+void handle_L()
 {
   byte ledmap[24];
-  network.read(header,ledmap,sizeof(ledmap));
+  ledmap[3]=receive_payload[3];
   if (DEBUG) {
-    p("%010ld: 'L' from %05o\n", millis(), header.from_node);
+    p("%010ld: 'L' from %05o\n", millis(), receive_payload[0]);
   }
   #ifdef USE_LEDS
   ledupdate(ledmap);
@@ -256,59 +247,70 @@ void handle_L(RF24NetworkHeader& header)
   }
 }
 
-void handle_T(RF24NetworkHeader& header)
+void handle_T()
 {
   unsigned long time;
-  network.read(header,&time,sizeof(time));
+  //network.read(header,&time,sizeof(time));
   if (DEBUG) {
-    p("%010ld: 'T' from %05o:%010ld\n", millis(), header.from_node, time);
+  //  p("%010ld: 'T' from %05o:%010ld\n", millis(), header.from_node, time);
   }
-  add_node(header.from_node);  
-  if(header.from_node != this_node)
+  //add_node(header.from_node);  
+ // if(header.from_node != this_node)
   {
-    RF24NetworkHeader header2(header.from_node/*header.from_node*/,'B');
+  //  RF24NetworkHeader header2(header.from_node/*header.from_node*/,'B');
     unsigned long nowM = micros();
-    if(network.write(header2,&time,sizeof(time)))
+  //  if(network.write(header2,&time,sizeof(time)))
       if (DEBUG) {
-        p("%010ld: ->'B' to   %05o in ", millis(),header.from_node);
-        Serial.print(micros()-nowM-16);
-        Serial.print(F(" us.\n"));
+   //     p("%010ld: ->'B' to   %05o in ", millis(),header.from_node);
+   //     Serial.print(micros()-nowM-16);
+   //     Serial.print(F(" us.\n"));
       }
   }
 }
 
-void handle_B(RF24NetworkHeader& header)
+void handle_B()
 {
   p_recv++;
   unsigned long ref_time;
-  network.read(header,&ref_time,sizeof(ref_time));
+  //network.read(header,&ref_time,sizeof(ref_time));
   if (DEBUG) {
-    p("%010ld: Recv 'B' from %05o -> %ldus round trip\n", millis(), header.from_node, micros()-ref_time);
+  //  p("%010ld: Recv 'B' from %05o -> %ldus round trip\n", millis(), header.from_node, micros()-ref_time);
   }
 }
+
 void processPacket(){
     ledst(3); // light up status LED with pattern #3
-    RF24NetworkHeader header; // initialize header
-    network.peek(header); // preview the header, but don't advance nor flush the packet
-    switch (header.type) // check which packet type we received
+    uint8_t len = 0;
+    bool done = 0;
+    while (!done)
+      {
+        // Fetch the payload and see if this was the last one.
+	len = radio.getDynamicPayloadSize();
+	done = radio.read( receive_payload, len );
+	// Put a zero at the end for easy printing
+	receive_payload[len] = 0;
+	// Print it out
+	p("  Recv size=%i value=%s\n\r",len,receive_payload);
+      }
+    switch (receive_payload[0]) // check which packet type we received
     {
       case 'K':
-        handle_K(header);
+        handle_K();
         break;
       case 'L':
-        handle_L(header);
+        handle_L();
         break;
       case 'T':
-        handle_T(header);
+        handle_T();
         break;
       case 'B':
-        handle_B(header);
+        handle_B();
         break;
       default:
-        network.read(header, 0, 0); // if none of the above packet types matched, read out and flush the buffer
+         // if none of the above packet types matched, read out and flush the buffer
         if (DEBUG) {
           Serial.print(F("undefined packet type: ")); // print the unrecognized packet type
-          Serial.print(header.type);
+          Serial.print(receive_payload[0]);
           Serial.println();
         }
         break;
