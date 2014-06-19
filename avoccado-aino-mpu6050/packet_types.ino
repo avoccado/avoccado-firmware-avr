@@ -150,18 +150,22 @@ void send_K(unsigned int to) {
   }
 
   //byte _br=max(0,angle_z);
+  if (DEBUG) {
   Serial.print(br);
+  }
   //  byte _c1= (unsigned int) (angle_x+90) * 364 / 257; // color
   //  byte _c2= (unsigned int) (angle_y+90) * 364 / 257; // color
   _r = (unsigned int) _c1 * br / 255;
   _g = (unsigned int) _c2 * br / 255;
   _b = (unsigned int) _c3 * br / 255;
+  if (DEBUG) {
   Serial.print(F("\t _r: "));
   Serial.print(_r);
   Serial.print(F("\t _g: "));
   Serial.print(_g);
   Serial.print(F("\t _b: "));
   Serial.println(_b);
+  }
   /*  byte axl=map(abs(ax),0,17000,0,255);
     byte ayl=map(abs(ay),0,17000,0,255);
     byte azl=map(abs(az),0,17000,0,255);
@@ -216,7 +220,7 @@ void send_L1(int to, int _b = 0) {
     };
 
     unsigned long now = millis();
-    bool ok = send_L(to, ledmap);
+    bool ok = 1; //send_L(to, ledmap);
     if (DEBUG) {
       p(" in %ld ms.\n", (millis() - now) );
       if (ok) {}
@@ -237,7 +241,6 @@ boolean send_T(uint16_t to) // Send out this nodes' time -> Timesync!
 boolean send_L(uint16_t to, byte* ledmap) // Send out an LED map
 {
   if (DEBUG) p("%010ld: 'L' to   %05o", millis(), to);
-  //RF24NetworkHeader header(to,'L');
   return radio.write(ledmap, sizeof(ledmap));
 }
 

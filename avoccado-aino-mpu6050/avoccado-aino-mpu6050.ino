@@ -32,13 +32,13 @@ __asm volatile ("nop"); // BOF preprocessor bug workaround
 #include <stdarg.h>
 #include <EEPROM.h>
 #include <CapacitiveSensor.h>
-#define DEBUG 1 // debug mode with verbose output over serial at 115200 bps
+#define DEBUG 0 // debug mode with verbose output over serial at 115200 bps
 #define USE_EEPROM // read nodeID and network settings from EEPROM at bootup, overwrites nodeID and MAC.
 #define LEDPIN 6
 #define KEEPALIVE 1 // keep connections alive with regular polling to node 0
 //#define USE_LEDS // LED stripe used
 //#define USE_TOUCH // capacitive touch sensing
-#define TIMEOUT_HIBERNATE 2000
+#define TIMEOUT_HIBERNATE 512
 #define TIMEOUT_MEMS 5000
 #define TIMEOUT_RADIO 8000
 #define PIN_VIBR 5 // pin for vibration motor, 9 for switchcube1, 5 for switch
@@ -54,7 +54,7 @@ CapacitiveSensor cs = CapacitiveSensor(8, 7);       // capacitive sensing at pin
 #endif
 
 const unsigned long interval_filter = 32;
-const unsigned long interval = 256; // KEEPALIVE interval in [ms]
+const unsigned long interval = 30; // main loop interval in [ms]
 unsigned long last_time_filtered;
 byte sweep = 0;
 byte nodeID = 1; // Unique Node Identifier (2...254) - also the last byte of the IPv4 adress, not used if USE_EEPROM is set
@@ -188,7 +188,7 @@ void setup() {
   delay(64);
   vibr(0); // stop vibrating
   // initialize devices
-  Serial.println(F("avoccado aino 0.201406181957"));
+  Serial.println(F("avoccado aino 0.201406191627"));
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
   Serial.println(F("I2C setup"));
   Wire.begin(); // join I2C bus (I2Cdev library doesn't do this automatically)
@@ -305,7 +305,7 @@ void powerMode(byte _mode = mode) {
       delay(64);
       vibr(0);
       setup_watchdog(wdt_250ms); // set touch check interval
-      while ( ((ay < (-10000)) || ay > (10000)) ) { // if the C3POW device is resting in this position
+      while ( ((ay < (-10000)) || ay > (10000)) ) { // if the Avoccado device is resting in this position
         do_sleep(); // keep on sleeping
         powerMode(1); // power up MEMS, wake up every watchdog timer interval
         //        mpucheck();
@@ -403,6 +403,7 @@ void loop() {
     }
     updates = 0;
     last_time_sent = now;
+    send_K(1);
     if (KEEPALIVE) {
       uint16_t to = 01;
       bool ok = 0;

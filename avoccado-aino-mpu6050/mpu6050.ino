@@ -116,6 +116,7 @@ void mpucheck() {
   //mpu.getRotation(&gx, &gy, &gz);
 
 #ifdef OUTPUT_READABLE_mpu
+if (DEBUG) {
   // display tab-separated accel/gyro x/y/z values
   Serial.print(F("a/g:\t"));
   Serial.print(ax); 
@@ -134,6 +135,7 @@ void mpucheck() {
   Serial.print(dT, 3);
   Serial.print(F("C \t"));
   Serial.println();
+}
 #endif
 
 #ifdef OUTPUT_BINARY_mpu
