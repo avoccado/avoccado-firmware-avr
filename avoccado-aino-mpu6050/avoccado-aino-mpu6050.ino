@@ -188,7 +188,7 @@ void setup() {
   delay(64);
   vibr(0); // stop vibrating
   // initialize devices
-  Serial.println(F("avoccado aino 0.201406191627"));
+  Serial.println(F("avoccado aino 0.201411141705"));
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
   Serial.println(F("I2C setup"));
   Wire.begin(); // join I2C bus (I2Cdev library doesn't do this automatically)
@@ -297,6 +297,7 @@ void powerMode(byte _mode = mode) {
       mpu.setStandbyXGyroEnabled(1);
       mpu.setStandbyYGyroEnabled(1);
       mpu.setStandbyZGyroEnabled(1);
+      Serial.print(F("Sleeping."));
       vibr(1);
       delay(64);
       vibr(0);
@@ -307,9 +308,11 @@ void powerMode(byte _mode = mode) {
       setup_watchdog(wdt_250ms); // set touch check interval
       while ( ((ay < (-10000)) || ay > (10000)) ) { // if the Avoccado device is resting in this position
         do_sleep(); // keep on sleeping
-        powerMode(1); // power up MEMS, wake up every watchdog timer interval
+        Serial.print(F("."));
+        mpu.setSleepEnabled(0); // power up MEMS, wake up every watchdog timer interval
         //        mpucheck();
         mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz); // get the new acceleration values TODO: implement for ADXL345
+        //mpu.setSleepEnabled(1);
       }
       for (int _i = 0; _i < 2; _i++) { // vibrate briefly when waking up from hibernation mode
         vibr(1);
@@ -317,6 +320,7 @@ void powerMode(byte _mode = mode) {
         vibr(0);
         delay(56);
       }
+      Serial.println();
       powerMode(1); // power up MEMS
       mpu.setStandbyXGyroEnabled(0);
       mpu.setStandbyYGyroEnabled(0);
