@@ -26,7 +26,7 @@ void send_K(unsigned int to) {
 
   if ( ay > (+15000) ) {
     Serial.println(F("RIGHT"));
-    int _cd = abs(gy) - breakpoint; // threshhold for movement detection and against gyro drift
+    int _cd = abs(gy) - breakpoint; // threshold for movement detection and against gyro drift
     _cd = (max(_cd, breakpoint)) - breakpoint;
     _cd = map(_cd, 0, GMAX, 0, 255);
     if (gy > 0) {
@@ -340,7 +340,7 @@ void processPacket() {
   {
     // Fetch the payload and see if this was the last one.
     len = radio.getDynamicPayloadSize();
-    done = radio.read( receive_payload, len );
+    done = radio.available();
     // Put a zero at the end for easy printing
     receive_payload[len] = 0;
     // Print it out

@@ -16,13 +16,15 @@ void processPacket();
 __asm volatile ("nop"); // BOF preprocessor bug workaround
 #endif
 
+//#define USE_LEDS // LED stripe used
+//#define USE_TOUCH // capacitive touch sensing
+
 // I2Cdev and MPU6050 must be installed as libraries, or else the .cpp/.h files
 // for both classes must be in the include path of the project
 #include "I2Cdev.h"
 #include "MPU6050.h"
 #include <avr/sleep.h>
 #include <avr/power.h>
-
 
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE // Arduino Wire library is required if I2Cdev I2CDEV_ARDUINO_WIRE implementation is used in I2Cdev.h
 #include "Wire.h"
@@ -31,13 +33,13 @@ __asm volatile ("nop"); // BOF preprocessor bug workaround
 #include <SPI.h>
 #include <stdarg.h>
 #include <EEPROM.h>
+#ifdef USE_TOUCH
 #include <CapacitiveSensor.h>
+#endif
 #define DEBUG 0 // debug mode with verbose output over serial at 115200 bps
 #define USE_EEPROM // read nodeID and network settings from EEPROM at bootup, overwrites nodeID and MAC.
 #define LEDPIN 6
 #define KEEPALIVE 1 // keep connections alive with regular polling to node 0
-//#define USE_LEDS // LED stripe used
-//#define USE_TOUCH // capacitive touch sensing
 #define TIMEOUT_HIBERNATE 512
 #define TIMEOUT_MEMS 5000
 #define TIMEOUT_RADIO 8000
