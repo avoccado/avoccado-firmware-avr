@@ -109,6 +109,8 @@ void send_K(unsigned int to) {
     }
   }
 
+//Avoccado switchcube proto 2 test 
+
   if ( az > 15000 ) {
     Serial.println(F("TOP"));
     int _cd = abs(gz) - breakpoint;
@@ -141,9 +143,9 @@ void send_K(unsigned int to) {
     if (!strobe) br = 0;
     _actions++;
   }
-  Serial.println(F("ACT"));
-  Serial.println(_actions, DEC);
-  Serial.println(F("ACT"));
+
+  Serial.print(_actions, DEC);
+  Serial.println(F(" ACT"));
   if (_actions > 0) active();
 
   if ( (abs(angle_x) < 10) & (abs(angle_y) < 10) ) {
@@ -155,6 +157,7 @@ void send_K(unsigned int to) {
   }
   //  byte _c1= (unsigned int) (angle_x+90) * 364 / 257; // color
   //  byte _c2= (unsigned int) (angle_y+90) * 364 / 257; // color
+  
   _r = (unsigned int) _c1 * br / 255;
   _g = (unsigned int) _c2 * br / 255;
   _b = (unsigned int) _c3 * br / 255;
@@ -182,7 +185,8 @@ void send_K(unsigned int to) {
       gxl,gxl,gxl,
       gyl,gyl,gyl,
       gzl,gzl,gzl };
-  */
+  */  
+  
   byte kmap[24] = {
     _r, _g, _b, // status LED at 0
     _r, _g, _b,
@@ -197,12 +201,13 @@ void send_K(unsigned int to) {
 
   unsigned long now = millis();
   
-  bool ok = send_L(to, kmap);
+  //bool ok = send_L(to, kmap);
+  
+  bool ok = radio.write(kmap, sizeof(kmap));
   
   if (DEBUG) {
-    p(" in %ld ms.\n", (millis() - now) );
-    if (ok) {}
-    if (!ok) p("%010ld: send_K timout.\n", millis()); // An error occured..
+    if (ok) Serial.println(F("send_K okay"));
+    if (!ok) Serial.println(F("send_K timout")); // An error occured..
   }
 }
 
@@ -282,25 +287,6 @@ void handle_K()
   }
 }
 
-void handle_L()
-{
-  byte ledmap[24];
-  ledmap[3] = receive_payload[3];
-  if (DEBUG) {
-    p("%010ld: 'L' from %05o\n", millis(), receive_payload[0]);
-  }
-#ifdef USE_LEDS
-  ledupdate(ledmap);
-#endif
-  if (DEBUG) {
-    for (uint16_t i = 0; i < sizeof(ledmap); i++) { // print out the received packet via serial
-      Serial.print(ledmap[i]);
-      Serial.print(" ");
-    }
-    Serial.println();
-  }
-}
-
 void handle_T()
 {
   unsigned long time;
@@ -352,7 +338,7 @@ void processPacket() {
       handle_K();
       break;
     case 'L':
-      handle_L();
+      //handle_L();
       break;
     case 'T':
       handle_T();

@@ -32,7 +32,7 @@ __asm volatile ("nop"); // BOF preprocessor bug workaround
 #include <stdarg.h>
 #include <EEPROM.h>
 #include <CapacitiveSensor.h>
-#define DEBUG 0 // debug mode with verbose output over serial at 115200 bps
+#define DEBUG 1 // debug mode with verbose output over serial at 115200 bps
 #define USE_EEPROM // read nodeID and network settings from EEPROM at bootup, overwrites nodeID and MAC.
 #define LEDPIN 6
 #define KEEPALIVE 1 // keep connections alive with regular polling to node 0
@@ -188,7 +188,7 @@ void setup() {
   delay(64);
   vibr(0); // stop vibrating
   // initialize devices
-  Serial.println(F("avoccado aino 0.201411141705"));
+  Serial.println(F("avoccado aino 0.201411181538"));
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
   Serial.println(F("I2C setup"));
   Wire.begin(); // join I2C bus (I2Cdev library doesn't do this automatically)
@@ -220,7 +220,7 @@ void setup() {
   radio.enableDynamicPayloads();   // enable dynamic payloads
   radio.setRetries(4, 8);  // optionally, increase the delay between retries & # of retries
   radio.setChannel(42);
-  Serial.print(F("\t datarate 1M: "));
+  Serial.print(F("\t datarate 250K: "));
   Serial.println(radio.getDataRate());
   radio.setDataRate(RF24_250KBPS);
   radio.setCRCLength(RF24_CRC_16);
@@ -231,22 +231,22 @@ void setup() {
   Serial.print(F("\t datarate 250K: "));
   Serial.println(radio.getDataRate());
   Serial.println();
-  
-    if ( role_pin==1 )
+
+  if ( role_pin == 1 )
     role = sender;
   else
     role = receiver;
-  
-  p("\t role: %s\n\r",role_friendly_name[role]);
+
+  p("\t role: %s\n\r", role_friendly_name[role]);
   if ( role == sender )
   {
     radio.openWritingPipe(pipes[0]);
-    radio.openReadingPipe(1,pipes[1]);
+    radio.openReadingPipe(1, pipes[1]);
   }
   else
   {
     radio.openWritingPipe(pipes[1]);
-    radio.openReadingPipe(1,pipes[0]);
+    radio.openReadingPipe(1, pipes[0]);
   }
 
   radio.startListening();
@@ -381,11 +381,11 @@ void loop() {
   //  if (millis()-lastActive> TIMEOUT_RADIO) radio.powerDown();
   updates++;
 
-  if ( radio.available() ) // while there are packets in the FIFO buffer
+  /*if ( radio.available() ) // while there are packets in the FIFO buffer
   {
     processPacket();
   }
-
+  */
   unsigned long now = millis();
   unsigned long nowM = micros();
   if ( now - last_time_filtered >= interval_filter ) { // non-blocking check for start of debug service routine interval
@@ -395,57 +395,18 @@ void loop() {
 
   if ( now - last_time_sent >= interval ) // non-blocking check for start of debug service routine interval
   {
-    ledst(2);
-    /* // unsigned long int rollover checking:
-     Serial.print(microsRollover()); // how many times has the unsigned long micros() wrapped?
-     Serial.print(":"); //separator
-     Serial.print(nowM); //micros();
-     Serial.print("\n"); //new line
-     */
-    if (DEBUG) {
+    //ledst(2);
+    /* if (DEBUG) {
       p("%010ld: %ld Hz\n", millis(), updates * 1000 / interval);
-    }
+    } */
     updates = 0;
     last_time_sent = now;
     send_K(1);
-    if (KEEPALIVE) {
-      uint16_t to = 01;
-      bool ok = 0;
-      if ( to != this_node)
-      {
-        unsigned long nowM = micros();
-        ok = send_T(to);
-        if (DEBUG) p(" in %ld us.\n", (micros() - nowM) );
-        if (ok) p_sent++;
-        if (!ok)
-        {
-          errors++;
-          if (DEBUG) {
-            p("%010ld: ACK timeout.\n", millis()); // An error occured, need to stahp!
-          }
-        }
-        iterations++;
-      }
-    }
-    sweep += 1;
-    if (sweep > 254) sweep = 0;
-    strobe = !strobe;
   }
+
 }
 
 
-/*
-radio.powerDown();
-Serial.print(F("MotionDetectionDuration: "));
-Serial.print(mpu.getMotionDetectionDuration());
-Serial.print(F("\t Threshold: "));
-Serial.print(mpu.getMotionDetectionThreshold());
-Serial.print(F("\t gyroRange: "));
-Serial.print(mpu.getFullScaleGyroRange());
-Serial.print(F("\t getClockSource: "));
-Serial.print(mpu.getClockSource());
-Serial.print(F("\n"));
-*/
 // 0=16ms, 1=32ms,2=64ms,3=125ms,4=250ms,5=500ms
 // 6=1 sec,7=2 sec, 8=4 sec, 9= 8sec
 void setup_watchdog(uint8_t prescalar)
