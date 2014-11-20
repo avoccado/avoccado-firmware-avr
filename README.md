@@ -1,6 +1,6 @@
 Avoccado
 ==========
-FKA C3POW, switchcube[1]
+please use the repo at https://github.com/avoccado/avoccado-avr :-)
 
 <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="http://i.creativecommons.org/l/by-sa/4.0/88x31.png" /></a><br />Avoccado is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>. Some Code is released under other Open Source licenses, like GPL/LGPL/MIT, which is then stated in the according source files.
 
