@@ -16,15 +16,13 @@ void processPacket();
 __asm volatile ("nop"); // BOF preprocessor bug workaround
 #endif
 
-//#define USE_LEDS // LED stripe used
-//#define USE_TOUCH // capacitive touch sensing
-
 // I2Cdev and MPU6050 must be installed as libraries, or else the .cpp/.h files
 // for both classes must be in the include path of the project
 #include "I2Cdev.h"
 #include "MPU6050.h"
 #include <avr/sleep.h>
 #include <avr/power.h>
+
 
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE // Arduino Wire library is required if I2Cdev I2CDEV_ARDUINO_WIRE implementation is used in I2Cdev.h
 #include "Wire.h"
@@ -33,9 +31,7 @@ __asm volatile ("nop"); // BOF preprocessor bug workaround
 #include <SPI.h>
 #include <stdarg.h>
 #include <EEPROM.h>
-#ifdef USE_TOUCH
 #include <CapacitiveSensor.h>
-#endif
 #define DEBUG 1 // debug mode with verbose output over serial at 115200 bps
 #define USE_EEPROM // read nodeID and network settings from EEPROM at bootup, overwrites nodeID and MAC.
 #define LEDPIN 6
@@ -45,7 +41,7 @@ __asm volatile ("nop"); // BOF preprocessor bug workaround
 #define TIMEOUT_HIBERNATE 512
 #define TIMEOUT_MEMS 5000
 #define TIMEOUT_RADIO 8000
-#define PIN_VIBR 5 // pin for vibration motor, 9 for switchcube1, 5 for prototype2
+#define PIN_VIBR 5 // pin for vibration motor, 9 for switchcube1, 5 for switch
 
 #ifdef USE_LEDS
 #include <Adafruit_NeoPixel.h>
@@ -58,7 +54,7 @@ CapacitiveSensor cs = CapacitiveSensor(8, 7);       // capacitive sensing at pin
 #endif
 
 const unsigned long interval_filter = 32;
-const unsigned long interval = 24; // main loop interval in [ms]
+const unsigned long interval = 30; // main loop interval in [ms]
 unsigned long last_time_filtered;
 byte sweep = 0;
 byte nodeID = 1; // Unique Node Identifier (2...254) - also the last byte of the IPv4 adress, not used if USE_EEPROM is set
@@ -172,8 +168,6 @@ const uint64_t pipes[2] = { 0xAEAEAEAEA0LL, 0xAEAEAEAEA1LL };
 
 void setup() {
 #if HW == 2 // only for C3POW prototype 2:
-  pinMode(A1, OUTPUT); //GND for NRF24
-  digitalWrite(A1, LOW);
   pinMode(7, OUTPUT);
   digitalWrite(7, HIGH); // Vcc for MPU6050
   pinMode(8, OUTPUT); // Vcc for the NRF24 module
@@ -194,7 +188,7 @@ void setup() {
   delay(64);
   vibr(0); // stop vibrating
   // initialize devices
-  Serial.println(F("avoccado aino 0.201411262359"));
+  Serial.println(F("avoccado aino 0.201411181538"));
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
   Serial.println(F("I2C setup"));
   Wire.begin(); // join I2C bus (I2Cdev library doesn't do this automatically)
@@ -311,7 +305,7 @@ void powerMode(byte _mode = mode) {
       vibr(1);
       delay(64);
       vibr(0);
-      setup_watchdog(wdt_250ms); // set activity check interval
+      setup_watchdog(wdt_250ms); // set touch check interval
       while ( ((ay < (-10000)) || ay > (10000)) ) { // if the Avoccado device is resting in this position
         do_sleep(); // keep on sleeping
         Serial.print(F("."));
@@ -379,7 +373,7 @@ void active() {
 void loop() {
 
   /////////////////////////
-  //powerMode(6); // WIP - shutdown forever, disable hardware until next hard reset
+  powerMode(6); // WIP - shutdown forever, disable hardware until next hard reset
   /////////////////////////
 
   if (millis() - lastActive > TIMEOUT_HIBERNATE && ((ay < (-10000)) || ay > (10000))) powerMode(5);
@@ -407,9 +401,7 @@ void loop() {
     } */
     updates = 0;
     last_time_sent = now;
-    radio.powerUp();
     send_K(1);
-    radio.powerDown();
   }
 
 }
