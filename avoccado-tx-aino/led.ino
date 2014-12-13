@@ -44,7 +44,7 @@ void ledst(int sta){
   #endif
 }
 
-PROGMEM prog_uchar red[]=
+PROGMEM const char red[]=
 {
   255,0,0,
   255,0,0,
@@ -54,7 +54,7 @@ PROGMEM prog_uchar red[]=
   255,0,0,
   255,0,0,
   255,0,0};
-PROGMEM prog_uchar blue[]=
+PROGMEM const char blue[]=
 {
   0,0,255,
   0,0,255,
@@ -64,7 +64,8 @@ PROGMEM prog_uchar blue[]=
   0,0,255,
   0,0,255,
   0,0,255};
-byte pat1[]={
+
+PROGMEM const byte pat1[]={
   10,0,0,
   10,10,0,
   0,10,0,

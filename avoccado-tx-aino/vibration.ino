@@ -29,7 +29,7 @@ void vibr(byte _state = 0) { // TODO: make switch case instead of IFs
   }
   if (_state == 2){ // short impulse
   vibr(1);
-  delay(50);
+  delay(32);
   vibr(0);
   }
   if (_state == 4){ // heartbeat double pulse
