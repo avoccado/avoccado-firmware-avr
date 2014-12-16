@@ -28,14 +28,14 @@ __asm volatile ("nop"); // BOF preprocessor bug workaround
 #include <EEPROM.h>
 #define DEBUG 1 // debug mode with verbose output over serial at 115200 bps
 #define USE_EEPROM // read nodeID and network settings from EEPROM at bootup, overwrites nodeID and MAC.
-#define LEDPIN 6
+#define LEDPIN A4
 #define KEEPALIVE 1 // keep connections alive with regular polling to node 0
 //#define USE_LEDS // LED stripe used
 #define TIMEOUT_HIBERNATE 512
 #define TIMEOUT_MEMS 5000
 #define TIMEOUT_RADIO 8000
-#define PIN_VIBR 5 // pin for vibration motor, 9 for switchcube1, 5 for prototype2
-
+#define PIN_VIBR A3 // pin for vibration motor, 9 for switchcube1, 5 for prototype2
+#define USE_LAMP
 #ifdef USE_LEDS
 #include <Adafruit_NeoPixel.h>
 Adafruit_NeoPixel leds = Adafruit_NeoPixel(8, LEDPIN, NEO_GRB + NEO_KHZ800); // number of pixels in strip, pin number, pixel type flags
@@ -103,6 +103,14 @@ const uint64_t pipes[2] = { 0xAEAEAEAEA0LL, 0xAEAEAEAEA1LL };
 void setup() {
   pinMode(PIN_VIBR, OUTPUT); // vibration motor
   vibr(0); // pull low and disable motor for now
+ 
+#ifdef USE_LAMP
+  for (uint8_t _i = 2; _i <= 9; _i++) {
+  pinMode(_i, OUTPUT);
+  digitalWrite(_i, LOW);
+  }
+#endif
+  
   vibr(1); // vibrate during bootup
 #ifdef USE_LEDS
   leds.begin(); // the 8 LEDs
