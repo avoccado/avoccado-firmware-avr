@@ -1,5 +1,5 @@
 #if 1 // BOF preprocessor bug workaround
-#define HW 2 // define hardware revision, 1=switchcube, 2=C3POWproto2, ... for different pin assignments and peripheral hardware
+#define HW 3 // define hardware revision, 1=switchcube, 2=C3POWproto2, 3=Avoccado-avr-fred... for different pin assignments and peripheral hardware
 #include "Arduino.h"
 inline unsigned long get_last_time();
 
@@ -38,30 +38,31 @@ __asm volatile ("nop"); // BOF preprocessor bug workaround
 #endif
 #define DEBUG 1 // debug mode with verbose output over serial at 115200 bps
 #define USE_EEPROM // read nodeID and network settings from EEPROM at bootup, overwrites nodeID and MAC.
-#define LEDPIN 6
+#define LEDPIN 4
+#define L 4
 #define KEEPALIVE 1 // keep connections alive with regular polling to node 0
 //#define USE_LEDS // LED stripe used
 //#define USE_TOUCH // capacitive touch sensing
 #define TIMEOUT_HIBERNATE 512
 #define TIMEOUT_MEMS 5000
 #define TIMEOUT_RADIO 8000
-#define PIN_VIBR 5 // pin for vibration motor, 9 for switchcube1, 5 for prototype2
+#define PIN_VIBR 3 // pin for vibration motor, 9 for switchcube1, 5 for prototype2
 
 #ifdef USE_LEDS
 #include <Adafruit_NeoPixel.h>
 Adafruit_NeoPixel leds = Adafruit_NeoPixel(8, LEDPIN, NEO_GRB + NEO_KHZ800); // number of pixels in strip, pin number, pixel type flags
 #endif
-RF24 radio(A0, 10); // CE, CS. CE at pin A0, CSN at pin 10
+RF24 radio(9, 10); // CE, CS. CE at pin A0, CSN at pin 10
 
 #ifdef USE_TOUCH
 CapacitiveSensor cs = CapacitiveSensor(8, 7);       // capacitive sensing at pins 7 and 8
 #endif
 
-const unsigned long interval_filter = 32;
-const unsigned long interval = 24; // main loop interval in [ms]
+const unsigned long interval_filter = 1000;
+const unsigned long interval = 50; // main loop interval in [ms]
 unsigned long last_time_filtered;
 byte sweep = 0;
-byte nodeID = 1; // Unique Node Identifier (2...254) - also the last byte of the IPv4 adress, not used if USE_EEPROM is set
+byte nodeID = 00; // Unique Node Identifier (2...254) - also the last byte of the IPv4 adress, not used if USE_EEPROM is set
 uint16_t this_node = 00; // always begin with 0 for octal declaration, not used if USE_EEPROM is set
 // Debug variables, TODO: don't initialize if DEBUG is set to 0
 unsigned long iterations = 0;
@@ -167,7 +168,7 @@ role_e role;
 const int role_pin = 1;
 
 // Radio pipe addresses for the 2 nodes to communicate.
-const uint64_t pipes[2] = { 0xAEAEAEAEA0LL, 0xAEAEAEAEA1LL };
+const uint64_t pipes[2] = { 0xA40CCAD000LL, 0xA40CCAD001LL };
 
 
 void setup() {
@@ -180,6 +181,8 @@ void setup() {
   digitalWrite(8, HIGH); // Vcc for the NRF24 module activated. Shutdown and hard power cut-off with LOW. Need to be initialized again afterwards.
 #endif
   pinMode(PIN_VIBR, OUTPUT); // vibration motor
+  pinMode(L, OUTPUT); // status LED
+  digitalWrite(L, HIGH);
   vibr(0); // pull low and disable motor for now
   vibr(1); // vibrate during bootup
 #ifdef USE_LEDS
@@ -194,7 +197,7 @@ void setup() {
   delay(64);
   vibr(0); // stop vibrating
   // initialize devices
-  Serial.println(F("avoccado aino 0.201411262359"));
+  Serial.println(F("avoccado aino 0.201412182308"));
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
   Serial.println(F("I2C setup"));
   Wire.begin(); // join I2C bus (I2Cdev library doesn't do this automatically)
@@ -225,8 +228,8 @@ void setup() {
   radio.setPALevel(RF24_PA_MAX); // transmitter gain value (see above)
   radio.enableDynamicPayloads();   // enable dynamic payloads
   radio.setRetries(4, 8);  // optionally, increase the delay between retries & # of retries
-  radio.setChannel(42);
-  Serial.print(F("\t datarate 250K: "));
+  radio.setChannel(23);
+  Serial.print(F("\t datarate: "));
   Serial.println(radio.getDataRate());
   radio.setDataRate(RF24_250KBPS);
   radio.setCRCLength(RF24_CRC_16);
@@ -261,6 +264,7 @@ void setup() {
   Serial.print(F("UID: "));
   Serial.print(F("(N/A)\n"));
   p("%010ld: Starting up\n", millis());
+  digitalWrite(L, LOW);
 #ifdef USE_LEDS
   colorWipe(leds.Color(50, 0, 0), 50); // Red
   colorWipe(leds.Color(0, 50, 0), 50); // Green
@@ -394,12 +398,12 @@ void loop() {
   */
   unsigned long now = millis();
   unsigned long nowM = micros();
-  if ( now - last_time_filtered >= interval_filter ) { // non-blocking check for start of debug service routine interval
+  if ( now - last_time_filtered >= interval_filter ) { 
     getangle();
     last_time_filtered = now;
   }
 
-  if ( now - last_time_sent >= interval ) // non-blocking check for start of debug service routine interval
+  if ( now - last_time_sent >= interval )
   {
     //ledst(2);
     /* if (DEBUG) {
@@ -407,9 +411,11 @@ void loop() {
     } */
     updates = 0;
     last_time_sent = now;
+    digitalWrite(L, HIGH);
     radio.powerUp();
     send_K(1); // send out a new packet to a remote node.
     radio.powerDown();
+    digitalWrite(L, LOW);
   }
 
 }

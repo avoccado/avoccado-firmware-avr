@@ -202,7 +202,7 @@ void send_K(unsigned int to) {
   unsigned long now = millis();
   
   //bool ok = send_L(to, kmap);
-  
+  Serial.println(F("send_K start"));
   bool ok = radio.write(kmap, sizeof(kmap));
   
   if (DEBUG) {
